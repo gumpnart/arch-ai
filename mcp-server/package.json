@@ -1,0 +1,24 @@
+{
+  "name": "excalidraw-mcp-server",
+  "version": "1.1.0",
+  "description": "MCP server for controlling Excalidraw via Claude",
+  "type": "module",
+  "bin": {
+    "excalidraw-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "node-fetch": "^3.3.2",
+    "simple-git": "^3.27.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

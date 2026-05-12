@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"D:\\\\developments\\\\excalidraw-mcp\" -Recurse -Force)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(setup\")",
+      "Bash(ls -la D:/developments/ | grep -iE \"vault|setup\")"
+    ]
+  }
+}

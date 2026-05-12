@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    container_name: excalidraw-bridge
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./scenes:/scenes
+      - ./diagrams-vault:/diagrams-vault
+    environment:
+      - SCENES_DIR=/scenes
+      - VAULT_DIR=/diagrams-vault
+      - PORT=3001
+    networks:
+      - excalidraw-net
+
+  excalidraw-app:
+    build:
+      context: ./excalidraw-app
+      dockerfile: Dockerfile
+    container_name: excalidraw-app
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - bridge
+    networks:
+      - excalidraw-net
+
+  kroki:
+    image: yuzutech/kroki
+    container_name: excalidraw-kroki
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - KROKI_MERMAID_HOST=mermaid
+    networks:
+      - excalidraw-net
+
+  mermaid:
+    image: yuzutech/kroki-mermaid
+    container_name: excalidraw-mermaid
+    restart: unless-stopped
+    expose:
+      - "8002"
+    networks:
+      - excalidraw-net
+
+networks:
+  excalidraw-net:
+    driver: bridge
+
+volumes:
+  scenes:

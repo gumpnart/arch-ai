@@ -1,0 +1,12 @@
+name: excalidraw-mcp
+version: 1.0.0
+description: APM project for excalidraw-mcp
+author: Gumpnart
+targets:
+- claude
+dependencies:
+  apm:
+  - ComposioHQ/awesome-claude-skills/mcp-builder
+  mcp: []
+includes: auto
+scripts: {}

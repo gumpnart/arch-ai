@@ -1,0 +1,14 @@
+lockfile_version: '1'
+generated_at: '2026-05-11T17:19:33.083651+00:00'
+apm_version: 0.13.0
+dependencies:
+- repo_url: ComposioHQ/awesome-claude-skills
+  host: github.com
+  resolved_commit: f2b5e29bc315f04c8e09591ba275f4c4f7d4b8fe
+  virtual_path: mcp-builder
+  is_virtual: true
+  package_type: claude_skill
+  deployed_files:
+  - .agents/skills/mcp-builder
+  - .claude/skills/mcp-builder
+  content_hash: sha256:c13c3ed120a1c29f50b05858eb83150780ca0d15997c77a184b934e7120fe2d5
