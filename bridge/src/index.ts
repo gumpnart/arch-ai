@@ -218,7 +218,7 @@ app.get("/diagrams", async (_req, res) => {
 // Get diagram source by relative path
 app.get("/diagrams/*", async (req, res) => {
   try {
-    const relPath = sanitizeDiagramPath(req.params[0]);
+    const relPath = sanitizeDiagramPath((req.params as any)['0']);
     const filePath = path.join(VAULT_DIR, relPath);
     const content = await fs.readFile(filePath, "utf-8");
     res.json({ path: relPath, content });
@@ -230,7 +230,7 @@ app.get("/diagrams/*", async (req, res) => {
 // Create or update diagram source
 app.put("/diagrams/*", async (req, res) => {
   try {
-    const relPath = sanitizeDiagramPath(req.params[0]);
+    const relPath = sanitizeDiagramPath((req.params as any)['0']);
     const filePath = path.join(VAULT_DIR, relPath);
     await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, req.body.content as string, "utf-8");
@@ -243,7 +243,7 @@ app.put("/diagrams/*", async (req, res) => {
 // Delete diagram source
 app.delete("/diagrams/*", async (req, res) => {
   try {
-    const relPath = sanitizeDiagramPath(req.params[0]);
+    const relPath = sanitizeDiagramPath((req.params as any)['0']);
     const filePath = path.join(VAULT_DIR, relPath);
     await fs.unlink(filePath);
     res.json({ success: true });
