@@ -1,19 +1,19 @@
-import express, { Request, Response } from "express";
-import cors from "cors";
+import Fastify from "fastify";
+import cors from "@fastify/cors";
 import chokidar from "chokidar";
 import fs from "fs/promises";
 import path from "path";
+import type { IncomingMessage, ServerResponse } from "http";
 
-const app = express();
+const fastify = Fastify({ logger: false });
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const SCENES_DIR = process.env.SCENES_DIR || "./scenes";
 const VAULT_DIR = process.env.VAULT_DIR || "./diagrams-vault";
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+void fastify.register(cors);
 
 // ─── SSE clients ────────────────────────────────────────────────────────────
-type SSEClient = { id: string; res: Response };
+type SSEClient = { id: string; res: ServerResponse };
 const clients = new Map<string, SSEClient>();
 
 function broadcast(data: object) {
@@ -105,150 +105,153 @@ ensureVaultDir().then(() => {
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
-// Health check
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", scenes_dir: SCENES_DIR, vault_dir: VAULT_DIR });
+fastify.get("/health", async () => {
+  return { status: "ok", scenes_dir: SCENES_DIR, vault_dir: VAULT_DIR };
 });
 
 // SSE endpoint — browsers connect here for live updates
-app.get("/events", (req: Request, res: Response) => {
+fastify.get("/events", (request, reply) => {
   const clientId = Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no"); // disable nginx buffering for SSE
-  res.flushHeaders();
+  reply.raw.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no", // disable nginx buffering for SSE
+  });
 
-  res.write(`data: ${JSON.stringify({ event: "connected", clientId })}\n\n`);
+  reply.raw.write(`data: ${JSON.stringify({ event: "connected", clientId })}\n\n`);
 
   // Heartbeat every 25s to keep the connection alive
   const heartbeat = setInterval(() => {
     try {
-      res.write(`: heartbeat\n\n`);
+      reply.raw.write(`: heartbeat\n\n`);
     } catch {
       clearInterval(heartbeat);
     }
   }, 25_000);
 
-  clients.set(clientId, { id: clientId, res });
+  clients.set(clientId, { id: clientId, res: reply.raw });
   console.log(`[sse] client connected: ${clientId} (total: ${clients.size})`);
 
-  req.on("close", () => {
+  (request.raw as IncomingMessage).on("close", () => {
     clearInterval(heartbeat);
     clients.delete(clientId);
     console.log(`[sse] client disconnected: ${clientId} (total: ${clients.size})`);
   });
+
+  reply.hijack();
 });
 
 // ─── Scene routes ─────────────────────────────────────────────────────────────
 
-app.get("/scenes", async (_req, res) => {
+fastify.get("/scenes", async (_request, reply) => {
   try {
     await ensureScenesDir();
     const files = await fs.readdir(SCENES_DIR);
-    const scenes = files.filter((f) => f.endsWith(".excalidraw")).sort();
-    res.json(scenes);
+    return files.filter((f) => f.endsWith(".excalidraw")).sort();
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    reply.status(500).send({ error: String(err) });
   }
 });
 
-app.get("/scenes/:name", async (req, res) => {
+fastify.get<{ Params: { name: string } }>("/scenes/:name", async (request, reply) => {
   try {
-    const name = sanitizeName(req.params.name);
+    const name = sanitizeName(request.params.name);
     const filePath = path.join(SCENES_DIR, name);
     const content = await fs.readFile(filePath, "utf-8");
-    res.json(JSON.parse(content));
+    return JSON.parse(content) as unknown;
   } catch {
-    res.status(404).json({ error: "Scene not found" });
+    reply.status(404).send({ error: "Scene not found" });
   }
 });
 
-app.put("/scenes/:name", async (req, res) => {
+fastify.put<{ Params: { name: string }; Body: unknown }>("/scenes/:name", async (request, reply) => {
   try {
     await ensureScenesDir();
-    const name = sanitizeName(req.params.name);
+    const name = sanitizeName(request.params.name);
     const filePath = path.join(SCENES_DIR, name);
-    await fs.writeFile(filePath, JSON.stringify(req.body, null, 2), "utf-8");
-    res.json({ success: true, file: name });
+    await fs.writeFile(filePath, JSON.stringify(request.body, null, 2), "utf-8");
+    return { success: true, file: name };
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    reply.status(500).send({ error: String(err) });
   }
 });
 
-app.delete("/scenes/:name", async (req, res) => {
+fastify.delete<{ Params: { name: string } }>("/scenes/:name", async (request, reply) => {
   try {
-    const name = sanitizeName(req.params.name);
+    const name = sanitizeName(request.params.name);
     const filePath = path.join(SCENES_DIR, name);
     await fs.unlink(filePath);
-    res.json({ success: true });
+    return { success: true };
   } catch {
-    res.status(404).json({ error: "Scene not found" });
+    reply.status(404).send({ error: "Scene not found" });
   }
 });
 
-app.post("/scenes/:name/rename", async (req, res) => {
-  try {
-    const oldName = sanitizeName(req.params.name);
-    const newName = sanitizeName(req.body.newName);
-    const oldPath = path.join(SCENES_DIR, oldName);
-    const newPath = path.join(SCENES_DIR, newName);
-    await fs.rename(oldPath, newPath);
-    res.json({ success: true, file: newName });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
+fastify.post<{ Params: { name: string }; Body: { newName: string } }>(
+  "/scenes/:name/rename",
+  async (request, reply) => {
+    try {
+      const oldName = sanitizeName(request.params.name);
+      const newName = sanitizeName(request.body.newName);
+      const oldPath = path.join(SCENES_DIR, oldName);
+      const newPath = path.join(SCENES_DIR, newName);
+      await fs.rename(oldPath, newPath);
+      return { success: true, file: newName };
+    } catch (err) {
+      reply.status(500).send({ error: String(err) });
+    }
   }
-});
+);
 
 // ─── Diagram routes ───────────────────────────────────────────────────────────
 
-// List all .md files in vault (recursive)
-app.get("/diagrams", async (_req, res) => {
+fastify.get("/diagrams", async (_request, reply) => {
   try {
     await ensureVaultDir();
     const results: string[] = [];
     await walkDir(VAULT_DIR, VAULT_DIR, results);
-    res.json(results.sort());
+    return results.sort();
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    reply.status(500).send({ error: String(err) });
   }
 });
 
-// Get diagram source by relative path
-app.get("/diagrams/*", async (req, res) => {
+fastify.get<{ Params: { "*": string } }>("/diagrams/*", async (request, reply) => {
   try {
-    const relPath = sanitizeDiagramPath((req.params as any)['0']);
+    const relPath = sanitizeDiagramPath(request.params["*"]);
     const filePath = path.join(VAULT_DIR, relPath);
     const content = await fs.readFile(filePath, "utf-8");
-    res.json({ path: relPath, content });
+    return { path: relPath, content };
   } catch {
-    res.status(404).json({ error: "Diagram not found" });
+    reply.status(404).send({ error: "Diagram not found" });
   }
 });
 
-// Create or update diagram source
-app.put("/diagrams/*", async (req, res) => {
-  try {
-    const relPath = sanitizeDiagramPath((req.params as any)['0']);
-    const filePath = path.join(VAULT_DIR, relPath);
-    await fs.mkdir(path.dirname(filePath), { recursive: true });
-    await fs.writeFile(filePath, req.body.content as string, "utf-8");
-    res.json({ success: true, path: relPath });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
+fastify.put<{ Params: { "*": string }; Body: { content: string } }>(
+  "/diagrams/*",
+  async (request, reply) => {
+    try {
+      const relPath = sanitizeDiagramPath(request.params["*"]);
+      const filePath = path.join(VAULT_DIR, relPath);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      await fs.writeFile(filePath, request.body.content, "utf-8");
+      return { success: true, path: relPath };
+    } catch (err) {
+      reply.status(500).send({ error: String(err) });
+    }
   }
-});
+);
 
-// Delete diagram source
-app.delete("/diagrams/*", async (req, res) => {
+fastify.delete<{ Params: { "*": string } }>("/diagrams/*", async (request, reply) => {
   try {
-    const relPath = sanitizeDiagramPath((req.params as any)['0']);
+    const relPath = sanitizeDiagramPath(request.params["*"]);
     const filePath = path.join(VAULT_DIR, relPath);
     await fs.unlink(filePath);
-    res.json({ success: true });
+    return { success: true };
   } catch {
-    res.status(404).json({ error: "Diagram not found" });
+    reply.status(404).send({ error: "Diagram not found" });
   }
 });
 
@@ -286,6 +289,11 @@ async function walkDir(baseDir: string, dir: string, results: string[]) {
 }
 
 // ─── Start ───────────────────────────────────────────────────────────────────
-app.listen(PORT, "0.0.0.0", () => {
+
+fastify.listen({ port: PORT, host: "0.0.0.0" }, (err) => {
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
   console.log(`[bridge] Listening on port ${PORT}`);
 });

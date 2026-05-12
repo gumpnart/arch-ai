@@ -6,7 +6,10 @@
       "Bash(Sort-Object FullName)",
       "Bash(Format-Table -AutoSize)",
       "Bash(setup\")",
-      "Bash(ls -la D:/developments/ | grep -iE \"vault|setup\")"
+      "Bash(ls -la D:/developments/ | grep -iE \"vault|setup\")",
+      "Bash(Test-Path \"d:\\\\developments\\\\excalidraw-mcp\\\\CHANGES.md\")",
+      "PowerShell(Get-Command pnpm)",
+      "PowerShell(pnpm --version)"
     ]
   }
 }

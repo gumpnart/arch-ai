@@ -1,5 +1,33 @@
 # Change Log
 
+## 2026-05-12 — bridge: migrate Express → Fastify, adopt pnpm; add SPEC.md
+
+### `bridge/src/index.ts`
+
+- Replaced `express` + `cors` with `fastify` v4 + `@fastify/cors`
+- SSE endpoint uses `reply.hijack()` + `reply.raw` (Node.js `ServerResponse`) for raw streaming
+- Wildcard diagram routes use Fastify's `request.params["*"]` instead of Express's `req.params[0]`
+- Route type generics added for all parameterised routes (`Params`, `Body`) for TypeScript correctness
+- Disconnect detection changed from Express `req.on("close", ...)` to `request.raw.on("close", ...)`
+
+### `bridge/package.json`
+
+- Removed: `express`, `cors`, `@types/express`, `@types/cors`, `ts-node`
+- Added: `fastify ^4.28.0`, `@fastify/cors ^9.0.0`, `tsx ^4.0.0`
+- Dev script changed from `ts-node src/index.ts` to `tsx src/index.ts`
+
+### `bridge/Dockerfile`
+
+- Switched from `npm` to `pnpm` (installed via `npm install -g pnpm`)
+- Builder stage: `pnpm install --frozen-lockfile` + `pnpm run build`
+- Runtime stage: `pnpm install --prod --frozen-lockfile`
+
+### `SPEC.md` (new)
+
+- Created full technical specification at project root covering all components (MCP server, bridge, excalidraw-app, Kroki), HTTP API reference, SSE event catalogue, data flows, vault format, networking diagram, `builder.ts` internals, known quirks, dev commands, and Claude Desktop config
+
+---
+
 ## 2026-05-12 — Kroki diagram-as-code integration + Obsidian vault
 
 ### Overview

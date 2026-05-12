@@ -1,14 +1,16 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json tsconfig.json ./
-RUN npm install
+RUN npm install -g pnpm
+COPY package.json pnpm-lock.yaml tsconfig.json ./
+RUN pnpm install --frozen-lockfile
 COPY src ./src
-RUN npm run build
+RUN pnpm run build
 
 FROM node:20-alpine
 WORKDIR /app
-COPY package.json ./
-RUN npm install --omit=dev
+RUN npm install -g pnpm
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --prod --frozen-lockfile
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /scenes
 EXPOSE 3001
