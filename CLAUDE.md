@@ -144,6 +144,21 @@ bash setup-vault.sh
 
 ## Claude Desktop Config
 
+**Docker (recommended)** — after `docker compose up -d`, no local Node.js needed:
+
+```json
+{
+  "mcpServers": {
+    "excalidraw": {
+      "command": "docker",
+      "args": ["exec", "-i", "excalidraw-mcp", "node", "/app/dist/index.js"]
+    }
+  }
+}
+```
+
+**Host (legacy)** — if running the MCP server outside Docker:
+
 ```json
 {
   "mcpServers": {
@@ -160,7 +175,13 @@ bash setup-vault.sh
 }
 ```
 
-`setup-vault.sh` prints the exact config block with absolute paths pre-filled. After editing config, restart Claude Desktop for tools to appear.
+**Claude Code connector** — after `docker compose up -d`:
+
+```bash
+claude mcp add --transport http excalidraw http://localhost:3002/mcp
+```
+
+After editing config, restart Claude Desktop for tools to appear.
 
 ## Key Constraints
 

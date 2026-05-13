@@ -52,6 +52,49 @@ services:
     networks:
       - excalidraw-net
 
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    image: excalidraw-mcp-server
+    container_name: excalidraw-mcp
+    restart: unless-stopped
+    volumes:
+      - ./diagrams-vault:/vault
+    environment:
+      - BRIDGE_URL=http://bridge:3001
+      - KROKI_URL=http://kroki:8000
+      - VAULT_PATH=/vault
+    depends_on:
+      - bridge
+      - kroki
+    networks:
+      - excalidraw-net
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+  mcp-http:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    image: excalidraw-mcp-server
+    container_name: excalidraw-mcp-http
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./diagrams-vault:/vault
+    environment:
+      - BRIDGE_URL=http://bridge:3001
+      - KROKI_URL=http://kroki:8000
+      - VAULT_PATH=/vault
+      - PORT=3002
+    depends_on:
+      - mcp-server
+      - bridge
+      - kroki
+    networks:
+      - excalidraw-net
+
 networks:
   excalidraw-net:
     driver: bridge
