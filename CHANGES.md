@@ -1,5 +1,107 @@
 # Change Log
 
+## 2026-05-13 — mcp-server: containerise stdio server; share image with mcp-http
+
+### `docker-compose.yml`
+
+- Added `mcp-server` service (container name `excalidraw-mcp`):
+  - Builds from `./mcp-server/Dockerfile`, tagged as `image: excalidraw-mcp-server`
+  - Runs `tail -f /dev/null` (`entrypoint` override) — keepalive so Claude Desktop can `docker exec` into it
+  - Volume `./diagrams-vault:/vault`; env vars `BRIDGE_URL`, `KROKI_URL`, `VAULT_PATH` pre-set
+  - `depends_on: [bridge, kroki]`
+- Updated `mcp-http` service:
+  - Added `image: excalidraw-mcp-server` — shares the same built image (Docker caches the build; only one build on `--build`)
+  - `depends_on` now includes `mcp-server` to guarantee build order
+
+### Claude Desktop config (updated)
+
+```json
+{
+  "mcpServers": {
+    "excalidraw": {
+      "command": "docker",
+      "args": ["exec", "-i", "excalidraw-mcp", "node", "/app/dist/index.js"]
+    }
+  }
+}
+```
+
+No `env` block needed — `BRIDGE_URL`, `KROKI_URL`, and `VAULT_PATH` are already set inside the container.
+
+---
+
+## 2026-05-13 — mcp-server: add Streamable HTTP transport for Claude connectors
+
+### Overview
+
+Added a second entry point (`http-server.ts`) that exposes all existing MCP tools over **Streamable HTTP** (the transport required by Claude connectors / Settings > Connectors). The stdio entry point (`index.ts`) is unchanged. All tool logic is now in a shared `handlers.ts` module.
+
+---
+
+### `mcp-server/src/handlers.ts` (new)
+
+Extracted from `index.ts`:
+- All env var constants (`BRIDGE_URL`, `KROKI_URL`, `VAULT_PATH`)
+- All helper functions (bridge, Kroki, vault, git, image element factory)
+- `TOOLS` array
+- All `handle*` functions
+- `handleTool(name, args)` dispatcher
+- `createMcpServer()` factory — creates a `Server` instance with `ListTools` and `CallTool` handlers wired up
+- Exports: `TOOLS`, `handleTool`, `createMcpServer`, `ok`, `err`
+
+### `mcp-server/src/index.ts` (simplified)
+
+- Now a 15-line stdio wrapper: imports `createMcpServer` from `handlers.ts`, connects with `StdioServerTransport`, logs env vars
+
+### `mcp-server/src/http-server.ts` (new)
+
+- Fastify v4 server on `PORT` (default `3002`)
+- Uses `reply.hijack()` + `reply.raw` for raw HTTP control (same pattern as bridge SSE)
+- `POST /mcp` — creates a new `StreamableHTTPServerTransport` + `Server` per session on `initialize`, routes subsequent requests to existing session by `mcp-session-id` header
+- `GET /mcp` — SSE stream for server-to-client messages
+- `DELETE /mcp` — closes and cleans up session
+- `GET /health` — returns `{ status: "ok", sessions: N }`
+- Session map: `Map<sessionId, StreamableHTTPServerTransport>`; cleaned up via `transport.onclose`
+
+### `mcp-server/package.json`
+
+- Bumped version `1.1.0` → `1.2.0`
+- Upgraded `@modelcontextprotocol/sdk` `^1.0.4` → `^1.12.0` (adds `StreamableHTTPServerTransport`)
+- Removed `node-fetch` (no longer needed — uses native `fetch` from Node 20)
+- Added `fastify ^4.28.0`
+- Added scripts: `start:http` (`node dist/http-server.js`), `dev:http` (`tsx src/http-server.ts`)
+
+### `mcp-server/Dockerfile` (new)
+
+- Multi-stage: builder (pnpm install + tsc) → runtime (Alpine + git + prod deps)
+- Git installed via `apk add git` with global user config for vault commit operations
+- Default `CMD`: `node dist/http-server.js`
+
+### `docker-compose.yml`
+
+- Added `mcp-http` service:
+  - Builds from `./mcp-server/Dockerfile`
+  - Port `3002:3002` exposed to host
+  - Volume `./diagrams-vault:/vault` for git-tracked diagram sources
+  - `BRIDGE_URL=http://bridge:3001`, `KROKI_URL=http://kroki:8000` (internal Docker network)
+  - `depends_on: [bridge, kroki]`
+
+---
+
+### Claude Code connector setup
+
+After `docker compose up --build -d`:
+
+```
+Settings > Connectors > Add custom connector
+URL: http://localhost:3002/mcp
+```
+
+Or via Claude Code CLI:
+```bash
+claude mcp add --transport http excalidraw http://localhost:3002/mcp
+```
+
 ## 2026-05-12 — bridge: migrate Express → Fastify, adopt pnpm; add SPEC.md
 
 ### `bridge/src/index.ts`
