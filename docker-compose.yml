@@ -56,7 +56,7 @@ services:
     build:
       context: ./mcp-server
       dockerfile: Dockerfile
-    image: excalidraw-mcp-server
+    image: localdraw-mcp-server
     container_name: excalidraw-mcp
     restart: unless-stopped
     volumes:
@@ -70,13 +70,13 @@ services:
       - kroki
     networks:
       - excalidraw-net
-    entrypoint: ["tail", "-f", "/dev/null"]
+    entrypoint: [ "tail", "-f", "/dev/null" ]
 
   mcp-http:
     build:
       context: ./mcp-server
       dockerfile: Dockerfile
-    image: excalidraw-mcp-server
+    image: localdraw-mcp-server
     container_name: excalidraw-mcp-http
     restart: unless-stopped
     ports:
@@ -92,6 +92,21 @@ services:
       - mcp-server
       - bridge
       - kroki
+    networks:
+      - excalidraw-net
+
+  mcp-tls:
+    build:
+      context: ./nginx-tls
+      dockerfile: Dockerfile
+    container_name: excalidraw-mcp-tls
+    restart: unless-stopped
+    ports:
+      - "3443:3443"
+    volumes:
+      - ./certs:/certs
+    depends_on:
+      - mcp-http
     networks:
       - excalidraw-net
 

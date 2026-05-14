@@ -3,14 +3,18 @@
 Connect Claude to a self-hosted Excalidraw instance. Claude can draw shapes, build architecture diagrams, and render **diagram-as-code** (Mermaid, PlantUML, Graphviz, D2, and 20+ more) — all visible live in your browser. Diagram sources are stored as Markdown files in an Obsidian-compatible vault with full git history.
 
 ```
-Claude Desktop  ──stdio──►  MCP Server  ──HTTP──►  Bridge  ──volume──►  .excalidraw files
-                                │                      │
-                                │                     SSE
-                                │                      │
-                           Kroki (SVG)        Excalidraw App (browser)
-                                │              auto-reloads on every change
-                           diagrams-vault/
-                           (git repo, Obsidian-ready)
+Claude Desktop  ──stdio (docker exec)──►  mcp-server  ─┐
+                                                        ├──HTTP──►  Bridge  ──volume──►  .excalidraw files
+Claude Desktop / Claude Code  ──HTTPS──►  mcp-tls  ────►  mcp-http  ──┘              │
+                                          (port 3443)   (port 3002)                  SSE
+                                                                                      │
+                                                                             Excalidraw App (browser)
+                                                                             auto-reloads on every change
+
+                           Both MCP services share one Docker image (excalidraw-mcp-server)
+                           and call Kroki for diagram-as-code rendering.
+                           mcp-tls = nginx with self-signed cert (trusted once via PowerShell).
+                           diagrams-vault/ is a separate git repo for versionable sources.
 ```
 
 ---
@@ -19,15 +23,11 @@ Claude Desktop  ──stdio──►  MCP Server  ──HTTP──►  Bridge  �
 
 ### 1. Prerequisites
 
-- **Docker + Docker Compose** (Excalidraw app, bridge, Kroki)
-- **Node.js 20+** and **pnpm** (MCP server, runs locally)
-- **Claude Desktop**
-- **git** (for vault auto-commit)
+- **Docker + Docker Compose** — runs everything (app, bridge, Kroki, and both MCP services)
+- **Claude Desktop** and/or **Claude Code**
+- **git** (for vault auto-commit from inside the container)
 
-Install pnpm if needed:
-```bash
-npm install -g pnpm
-```
+> Node.js is no longer required on the host. The MCP server builds and runs inside Docker.
 
 ---
 
@@ -38,7 +38,7 @@ npm install -g pnpm
 docker compose up --build -d
 ```
 
-This starts four containers:
+This starts six containers:
 
 | Service | URL | Purpose |
 |---|---|---|
@@ -46,29 +46,17 @@ This starts four containers:
 | `bridge` | http://localhost:3001 | File API + SSE live-reload |
 | `kroki` | http://localhost:8000 | Diagram renderer (Mermaid, PlantUML, etc.) |
 | `mermaid` | internal | Kroki companion for Mermaid support |
+| `mcp-server` | — | Keepalive container for Claude Desktop `docker exec` stdio |
+| `mcp-http` | http://localhost:3002 | Streamable HTTP transport (internal — proxied by mcp-tls) |
+| `mcp-tls` | **https://localhost:3443** | HTTPS/TLS proxy for Claude Desktop + Claude Code connectors |
+
+Both `mcp-server` and `mcp-http` share the same built image (`excalidraw-mcp-server`), so `--build` only compiles once.
 
 Open **http://localhost:3000** in your browser.
 
 ---
 
-### 3. Build the MCP server
-
-```bash
-cd mcp-server
-pnpm install
-pnpm run build
-```
-
-Test it:
-```bash
-BRIDGE_URL=http://localhost:3001 node dist/index.js
-# [excalidraw-mcp] Server running. Bridge: http://localhost:3001 | Kroki: http://localhost:8000 | Vault: (not set)
-# Ctrl+C to exit
-```
-
----
-
-### 4. Set up the diagrams vault
+### 3. Set up the diagrams vault
 
 Run the interactive setup script once from the project root:
 
@@ -79,11 +67,16 @@ bash setup-vault.sh
 It will:
 1. Initialise `diagrams-vault/` as a git repo
 2. Optionally add a GitHub remote and push
-3. Print a ready-to-paste `claude_desktop_config.json` block with your absolute paths filled in
 
 ---
 
-### 5. Configure Claude Desktop
+### 4. Configure Claude Desktop
+
+Two connection methods are available — choose one.
+
+#### Option A: stdio via `docker exec` (simplest, no TLS needed)
+
+After `docker compose up -d`, no host Node.js is required. Claude Desktop spawns the MCP server by running `node` inside the already-running `excalidraw-mcp` container.
 
 Open **Settings → Developer → Edit Config**
 - Mac: `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -93,22 +86,106 @@ Open **Settings → Developer → Edit Config**
 {
   "mcpServers": {
     "excalidraw": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/excalidraw-mcp/mcp-server/dist/index.js"],
-      "env": {
-        "BRIDGE_URL": "http://localhost:3001",
-        "KROKI_URL": "http://localhost:8000",
-        "VAULT_PATH": "/ABSOLUTE/PATH/TO/excalidraw-mcp/diagrams-vault"
-      }
+      "command": "docker",
+      "args": ["exec", "-i", "excalidraw-mcp", "node", "/app/dist/index.js"]
     }
   }
 }
 ```
 
-> `setup-vault.sh` prints this block with your paths already substituted.  
-> On Windows use forward slashes or double-backslashes in JSON strings.
+No `env` block needed — `BRIDGE_URL`, `KROKI_URL`, and `VAULT_PATH` are already set inside the container.
+
+#### Option B: HTTPS connector (port 3443)
+
+Claude Desktop only accepts **https** for HTTP-transport connectors. The `mcp-tls` container handles TLS termination with a self-signed certificate.
+
+**Step 1 — Trust the certificate (once, Windows only, run PowerShell as Administrator):**
+
+```powershell
+Import-Certificate -FilePath "$PWD\certs\server.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+> The `certs/server.crt` file is generated automatically on the first `docker compose up`. If it does not exist yet, start the stack first, then run the command above.
+
+**Step 2 — Add via the Claude Desktop UI:**
+
+Open Claude Desktop → Settings → Developer → Add custom connector → enter `https://localhost:3443/mcp`.
+
+Claude Desktop will open your browser for an OAuth authorization step. The server **auto-approves** (no manual action needed — it redirects immediately back to Claude). Tokens are stored in memory and reset when the container restarts.
+
+**Alternative — Add to `claude_desktop_config.json` directly** (skips the OAuth UI entirely):
+
+```json
+{
+  "mcpServers": {
+    "excalidraw": {
+      "url": "https://localhost:3443/mcp"
+    }
+  }
+}
+```
 
 Restart Claude Desktop. The Excalidraw tools will appear in the tools panel.
+
+---
+
+### 5. Configure Claude Code (HTTPS connector)
+
+After `docker compose up -d` and trusting the cert (see Option B above):
+
+```bash
+claude mcp add --transport http excalidraw https://localhost:3443/mcp
+```
+
+The `mcp-tls` service proxies HTTPS → `mcp-http:3002` internally. Do not point connectors directly at port 3002 — Claude Desktop and Claude Code both require HTTPS.
+
+---
+
+### 6. claude.ai web (requires public URL)
+
+**Why localhost does not work with claude.ai web**: When you click "Add custom connector" on [claude.ai](https://claude.ai), Anthropic's **backend servers** validate the URL — not your browser. Anthropic's servers cannot reach `localhost`, so the connector addition fails immediately with "Failed to add connector" without sending a single request to nginx (confirmed by empty access logs).
+
+**Solution: expose port 3002 with a tunnel**
+
+Pick one of the options below. Both give you a public HTTPS URL that you paste into claude.ai → Settings → Connectors → Add custom connector.
+
+#### Option A: Cloudflare Tunnel (recommended — free, no account required for short sessions)
+
+```bash
+# Install once: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
+cloudflared tunnel --url http://localhost:3002
+# Output: https://xxxx-xxxx-xxxx.trycloudflare.com
+```
+
+Add `https://xxxx-xxxx-xxxx.trycloudflare.com/mcp` to claude.ai.
+
+#### Option B: ngrok
+
+```bash
+ngrok http 3002
+# Output: https://xxxx.ngrok-free.app
+```
+
+Add `https://xxxx.ngrok-free.app/mcp` to claude.ai.
+
+> **Note:** The tunnel points at port `3002` (plain HTTP, no TLS) — there's no need to double-wrap TLS. The tunnel provider adds HTTPS automatically. The `mcp-tls` container (port 3443) is only for Claude Desktop / Claude Code which connect locally.
+
+> **Legacy host-based config** — if you prefer to run the MCP server outside Docker, install Node 20+ and pnpm, then `cd mcp-server && pnpm install && pnpm run build`, and use this Claude Desktop config:
+> ```json
+> {
+>   "mcpServers": {
+>     "excalidraw": {
+>       "command": "node",
+>       "args": ["/ABSOLUTE/PATH/TO/excalidraw-mcp/mcp-server/dist/index.js"],
+>       "env": {
+>         "BRIDGE_URL": "http://localhost:3001",
+>         "KROKI_URL": "http://localhost:8000",
+>         "VAULT_PATH": "/ABSOLUTE/PATH/TO/excalidraw-mcp/diagrams-vault"
+>       }
+>     }
+>   }
+> }
+> ```
 
 ---
 
@@ -191,7 +268,7 @@ List all diagrams in the Architecture folder, then show the last 5 git commits.
 
 ```
 excalidraw-mcp/
-├── docker-compose.yml          # bridge + excalidraw-app + kroki + mermaid
+├── docker-compose.yml          # bridge + excalidraw-app + kroki + mermaid + mcp-server + mcp-http
 ├── setup-vault.sh              # one-time vault init + config printer
 │
 ├── scenes/                     # .excalidraw files (Docker volume)
@@ -214,10 +291,13 @@ excalidraw-mcp/
 │   ├── nginx.conf              # proxies /api → bridge
 │   └── src/App.tsx
 │
-└── mcp-server/                 # Runs locally (stdio → Claude Desktop)
+└── mcp-server/                 # Builds into Docker image (excalidraw-mcp-server)
+    ├── Dockerfile              # Multi-stage: builder (tsc) → runtime (Alpine + git)
     ├── package.json
     └── src/
-        ├── index.ts            # MCP server, all tool handlers, Kroki client
+        ├── handlers.ts         # All tool logic, env vars, helpers, createMcpServer()
+        ├── index.ts            # Stdio entry point (15 lines) → used by mcp-server container
+        ├── http-server.ts      # Fastify + StreamableHTTPServerTransport → mcp-http container
         ├── builder.ts          # Excalidraw element factory
         └── types.ts            # Excalidraw JSON types + DiagramFrontmatter
 ```
@@ -282,20 +362,28 @@ Open `diagrams-vault/` directly in [Obsidian](https://obsidian.md) to get a visu
 | `SCENES_DIR` | `/scenes` | Directory for `.excalidraw` files |
 | `VAULT_DIR` | `/diagrams-vault` | Directory for diagram `.md` files |
 
-### MCP Server
-| Variable | Default | Description |
+### MCP Server (both `mcp-server` and `mcp-http` containers)
+| Variable | Default (Docker) | Description |
 |---|---|---|
-| `BRIDGE_URL` | `http://localhost:3001` | Bridge server URL |
-| `KROKI_URL` | `http://localhost:8000` | Kroki renderer URL |
-| `VAULT_PATH` | *(required)* | Absolute host path to `diagrams-vault/` |
+| `BRIDGE_URL` | `http://bridge:3001` | Bridge server URL |
+| `KROKI_URL` | `http://kroki:8000` | Kroki renderer URL |
+| `VAULT_PATH` | `/vault` | Path to `diagrams-vault/` inside the container |
+| `PORT` | `3002` | HTTP port for `mcp-http` (Streamable HTTP transport) |
 
 ---
 
 ## Troubleshooting
 
+**"Cannot add server" when adding `https://localhost:3443/mcp` in Claude Desktop / Claude Code**
+- Make sure you are running the latest `mcp-http` image: `docker compose build mcp-server && docker compose up -d mcp-server mcp-http`.
+- Confirm the TLS certificate is trusted: run `Get-ChildItem Cert:\LocalMachine\Root | Where-Object { $_.Subject -match 'excalidraw' }` in PowerShell — you should see one entry. If not, run `Import-Certificate -FilePath "$PWD\certs\server.crt" -CertStoreLocation Cert:\LocalMachine\Root` as Administrator.
+- The OAuth flow auto-approves — when Claude opens a browser window for authorization, wait briefly and the page will redirect back to Claude automatically.
+- Tokens are stored **in memory** and reset when the container restarts. If Claude reports an invalid token, remove and re-add the connector in Settings → Developer.
+
 **Claude can't connect to MCP server**
-- Confirm `pnpm run build` completed in `mcp-server/` with no errors
-- Check the absolute path in `claude_desktop_config.json`
+- Confirm all containers are running: `docker compose ps` — `excalidraw-mcp` must be `Up`
+- For Claude Desktop: verify the `command` is `docker` and the container name is `excalidraw-mcp`
+- For Claude Code: verify `docker compose ps` shows `excalidraw-mcp-http` as `Up` on port 3002
 - Restart Claude Desktop after any config change
 
 **Scene not live-reloading**
@@ -309,8 +397,8 @@ Open `diagrams-vault/` directly in [Obsidian](https://obsidian.md) to get a visu
 - For Mermaid: confirm the `mermaid` companion container is also running
 
 **`create_diagram` says "VAULT_PATH env var is not set"**
-- Add `VAULT_PATH` to your `claude_desktop_config.json` env block and restart Claude Desktop
-- Run `bash setup-vault.sh` to get the correct value for your machine
+- Docker setup: `VAULT_PATH` is pre-set to `/vault` in `docker-compose.yml` — confirm the `diagrams-vault` volume mount is present and the container is running
+- Legacy host setup: add `VAULT_PATH` to your `claude_desktop_config.json` env block and restart Claude Desktop
 
 **Git push fails silently**
 - Run `create_diagram` or `git_status` tool — it reports "committed (no remote configured)"

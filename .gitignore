@@ -2,3 +2,6 @@
 # APM dependencies
 apm_modules/
 node_modules/
+
+# Generated TLS certificates (created at runtime by mcp-tls container)
+certs/

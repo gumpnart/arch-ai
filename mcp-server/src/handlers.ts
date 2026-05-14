@@ -27,7 +27,9 @@ const VAULT_PATH = process.env.VAULT_PATH ?? "";
 async function getScene(name: string): Promise<ExcalidrawScene> {
   const res = await fetch(`${BRIDGE_URL}/scenes/${encodeURIComponent(name)}`);
   if (!res.ok) throw new Error(`Scene "${name}" not found`);
-  return res.json() as Promise<ExcalidrawScene>;
+  const scene = await res.json() as ExcalidrawScene;
+  scene.files = scene.files ?? {};
+  return scene;
 }
 
 async function putScene(name: string, scene: ExcalidrawScene): Promise<void> {

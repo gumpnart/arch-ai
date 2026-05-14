@@ -1,5 +1,164 @@
 # Change Log
 
+## 2026-05-14 — chore: align OAuth provider with MCP TypeScript SDK v1.29.0 reference implementation
+
+Updated `mcp-server/src/http-server.ts` to match the SDK's v1.29.0 `demoInMemoryOAuthProvider` patterns:
+
+- **`registerClient`**: removed redundant `client_id` generation — SDK generates it before calling this method; implementation now stores the full object as-is
+- **`authCodes` map**: now stores full `AuthorizationParams` + client (was: just challenge string + client_id)
+- **`authorize`**: added `redirect_uri` validation against `client.redirect_uris` (throws `InvalidRequestError` for unregistered URIs)
+- **`exchangeAuthorizationCode`**: new parameters per v1.29.0 interface — `codeVerifier?`, `redirectUri?`, `resource?`; resource tracked per-token; scopes propagated into `AuthInfo`
+- **`exchangeRefreshToken`**: added `resource?: URL` parameter to match updated interface
+- **`verifyAccessToken`**: now returns `resource` field from `AuthInfo`; explicit expiry check
+- **`token_type`**: changed from `"Bearer"` (RFC non-conformant) to `"bearer"` (lowercase per OAuth 2.1)
+- **`isInitializeRequest`**: now imported from `@modelcontextprotocol/sdk/types.js` instead of a local copy
+- **`mcpAuthRouter`**: added `scopesSupported: ["mcp:tools"]` option
+- **`package.json`**: bumped SDK version constraint from `^1.12.0` → `^1.29.0` to match what pnpm already resolved
+
+## 2026-05-14 — feat: OAuth 2.0 support for Claude Desktop "Add custom connector" UI
+
+### Root cause analysis
+
+Claude Desktop's "Add custom connector" UI performs OAuth validation before adding a server. It sends a GET to `/.well-known/oauth-authorization-server` to discover the authorization server, then registers a client, opens the browser for the user to authorize, and exchanges the code for a token. Without OAuth endpoints, the connector addition fails with "Failed to add connector."
+
+### What changed
+
+The HTTP transport (`mcp-http` container) was rewritten from **Fastify** to **Express** to use the MCP SDK's built-in OAuth auth router (`mcpAuthRouter`). A simple in-memory `OAuthServerProvider` auto-approves all authorization requests (dev mode — no real user consent needed for a local server).
+
+**OAuth endpoints now served at `https://localhost:3443/`:**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 authorization server metadata |
+| `GET /.well-known/oauth-protected-resource/mcp` | RFC 9728 protected resource metadata |
+| `GET/POST /authorize` | Authorization endpoint (auto-approves, redirects with code) |
+| `POST /token` | Token endpoint (PKCE S256 exchange) |
+| `POST /register` | Dynamic client registration (RFC 7591) |
+
+**`/mcp` routes** now require a valid Bearer token (`Authorization: Bearer <token>`). The 401 response includes `WWW-Authenticate` with a `resource_metadata` hint so clients can discover OAuth endpoints automatically.
+
+Tokens are issued with a 1-year expiry (in-memory, reset on container restart).
+
+### Changes
+
+- **`mcp-server/src/http-server.ts`** — Rewritten from Fastify to Express; added in-memory `OAuthServerProvider`; mounted `mcpAuthRouter()`; added `requireBearerAuth` to all `/mcp` routes.
+- **`mcp-server/package.json`** — Added `express@^5.0.0`, `@types/express@^5.0.0`; removed `fastify@^4.28.0`.
+- **`mcp-server/pnpm-lock.yaml`** — Updated lockfile.
+
+### How to apply
+
+```bash
+docker compose build mcp-server && docker compose up -d mcp-server mcp-http
+```
+
+After rebuilding, open Claude Desktop → Settings → Developer → Add custom connector → `https://localhost:3443/mcp`. Claude will open your browser for the OAuth authorization step (which auto-approves and redirects immediately).
+
+---
+
+## 2026-05-14 — fix: add Private Network Access header + root endpoint; clarify claude.ai web requires public URL
+
+### Root cause analysis
+
+`claude.ai` web custom connectors are validated by **Anthropic's backend servers**, not by the browser. Because Anthropic's servers cannot reach `localhost`, any `localhost` URL silently fails with "Failed to add connector" before a single byte reaches nginx (confirmed by empty access logs on every add attempt).
+
+The `Access-Control-Allow-Private-Network: true` header — required by Chrome's Private Network Access policy for browser-side clients — was also missing. It is now added to all CORS responses so that browser-based MCP clients (e.g. future claude.ai architecture or direct API consumers) can connect from `https://claude.ai` to localhost.
+
+**For claude.ai web**: expose the server with a public HTTPS tunnel, then add the tunnel URL as the connector:
+- **ngrok**: `ngrok http --url=<your-static-domain> https://localhost:3443` (or plain `ngrok http 3443` after disabling TLS termination — easier: `ngrok http http://localhost:3002` and point nginx out of the path)
+- **Cloudflare Tunnel**: `cloudflared tunnel --url http://localhost:3002`
+
+**For Claude Desktop**: `https://localhost:3443/mcp` works directly (local connection, cert already trusted).
+
+### Changes
+
+- **`mcp-server/src/http-server.ts`** — Added `Access-Control-Allow-Private-Network: true` to `onRequest` CORS hook and OPTIONS handler.
+- **`mcp-server/src/http-server.ts`** — Added `GET /` discovery endpoint returning server name, version, and instructions.
+
+### How to apply
+
+```bash
+docker compose build mcp-http && docker compose up -d mcp-http
+```
+
+---
+
+## 2026-05-13 — fix: GET /mcp returns 405 so Claude Desktop/Code can add the server
+
+### Root cause
+
+When adding `https://localhost:3443/mcp` in Claude Desktop or Claude Code, the client sends an initial `GET /mcp` (without a session ID) as a reachability probe. The server was returning `400 Bad Request`, which the MCP SDK client treats as a fatal `StreamableHTTPError`. Only `405 Method Not Allowed` is handled gracefully — the SDK falls back to POST-only mode and continues.
+
+### Changes
+
+- **`mcp-server/src/http-server.ts`** — GET handler now checks the session ID *before* calling `reply.hijack()`. A missing or unknown session ID returns `405` with `Allow: POST`, instead of `400`.
+- **`mcp-server/src/http-server.ts`** — OPTIONS CORS handler adds `mcp-protocol-version` and `authorization` to `Access-Control-Allow-Headers` (required by MCP SDK 1.29.0 clients).
+
+### How to apply
+
+```bash
+docker compose build mcp-http && docker compose up -d mcp-http
+```
+
+---
+
+## 2026-05-13 — mcp-tls: add HTTPS proxy for Claude Desktop / Claude Code connectors
+
+### Problem
+
+Claude Desktop (and Claude Code CLI) only accept **https** URLs for HTTP-transport MCP connectors. The existing `mcp-http` service on port 3002 serves plain HTTP, so the connector URL `http://localhost:3002/mcp` was rejected.
+
+### Solution
+
+Added a new `mcp-tls` Docker service — an nginx reverse proxy that terminates TLS on port 3443 and forwards to `mcp-http:3002` over HTTP inside the Docker network.
+
+### New files
+
+- `nginx-tls/Dockerfile` — builds nginx:alpine with openssl
+- `nginx-tls/entrypoint.sh` — generates a self-signed certificate into the `./certs/` bind-mount on first start; prints the PowerShell trust command; then starts nginx
+- `nginx-tls/nginx.conf` — listens on 3443 with SSL; proxy_pass to `mcp-http:3002`; buffering disabled for SSE
+
+### `docker-compose.yml`
+
+- Added `mcp-tls` service (port `3443:3443`, bind-mount `./certs:/certs`, depends on `mcp-http`)
+
+### `.gitignore`
+
+- Added `certs/` — the generated certificate files are runtime artefacts, not source
+
+### One-time setup (Windows, run once after first `docker compose up`)
+
+```powershell
+# Run PowerShell as Administrator
+Import-Certificate -FilePath "$PWD\certs\server.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+### Updated connector URLs
+
+| Client | URL |
+|---|---|
+| Claude Desktop (HTTP connector) | `https://localhost:3443/mcp` |
+| Claude Code CLI | `claude mcp add --transport http excalidraw https://localhost:3443/mcp` |
+
+### `CLAUDE.md` and `README.md`
+
+- Added project rule: always update README.md and CHANGES.md on any project change
+- Updated Architecture section to include `nginx-tls/` and `certs/`
+- Updated Claude Desktop config section with Option A (stdio) / Option B (HTTPS)
+- Updated Claude Code connector section to use HTTPS URL
+
+---
+
+## 2026-05-13 — mcp-http: add CORS support for browser-based connectors
+
+### `mcp-server/src/http-server.ts`
+
+- Added `onRequest` Fastify hook that sets `Access-Control-Allow-Origin` (echoes request `Origin`), `Access-Control-Allow-Credentials`, and `Access-Control-Expose-Headers: mcp-session-id` on every response — including hijacked routes where plugins cannot inject headers after the fact
+- Added `OPTIONS /mcp` route for CORS preflight — responds 204 with `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, and `Access-Control-Max-Age`
+
+**Why:** Claude Desktop and claude.ai send requests from an `https://claude.ai` origin. Without CORS headers the browser blocks all requests before the MCP handshake, which was the root cause of the "failed to add connector" error.
+
+---
+
 ## 2026-05-13 — mcp-server: containerise stdio server; share image with mcp-http
 
 ### `docker-compose.yml`

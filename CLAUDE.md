@@ -1,13 +1,16 @@
 # excalidraw-mcp
 
+> **Project rule:** Always update `README.md` and `CHANGES.md` whenever any change occurs in the project.
+
 MCP server that lets Claude Desktop draw on an Excalidraw canvas in real time, with diagram-as-code support via Kroki and an Obsidian-compatible vault for versionable diagram sources.
 
 ## Architecture
 
 ```
 excalidraw-mcp/
-├── docker-compose.yml        ← bridge + excalidraw-app + kroki + mermaid containers
+├── docker-compose.yml        ← bridge + excalidraw-app + kroki + mermaid + mcp-tls containers
 ├── scenes/                   ← .excalidraw files (shared Docker volume)
+├── certs/                    ← generated at runtime by mcp-tls (gitignored)
 ├── diagrams-vault/           ← Obsidian vault (separate git repo, mounted into bridge)
 │   ├── .obsidian/
 │   ├── Architecture/
@@ -15,9 +18,10 @@ excalidraw-mcp/
 │   ├── Sequences/
 │   ├── Infrastructure/
 │   └── README.md
-├── bridge/                   ← Express + chokidar + SSE (port 3001, Docker only)
+├── bridge/                   ← Fastify + chokidar + SSE (port 3001, Docker only)
 ├── excalidraw-app/           ← React/Vite app → nginx (port 3000)
-└── mcp-server/               ← TypeScript MCP server (runs locally, stdio)
+├── nginx-tls/                ← nginx TLS proxy: HTTPS 3443 → HTTP mcp-http:3002
+└── mcp-server/               ← TypeScript MCP server (stdio + HTTP transports)
 ```
 
 **Live-reload flow (scenes):** Claude calls MCP tool → bridge HTTP API → writes `.excalidraw` file → chokidar fires → SSE push to browser → `excalidrawAPI.updateScene()` (no page refresh).
@@ -175,10 +179,28 @@ bash setup-vault.sh
 }
 ```
 
-**Claude Code connector** — after `docker compose up -d`:
+**Claude Desktop HTTP connector** — Claude Desktop requires HTTPS. The `mcp-tls` container (port 3443) terminates TLS and proxies to `mcp-http:3002`. The cert is generated on first start into `./certs/server.crt`.
+
+Trust the cert on Windows (run PowerShell as Administrator once):
+```powershell
+Import-Certificate -FilePath "$PWD\certs\server.crt" -CertStoreLocation Cert:\LocalMachine\Root
+```
+
+Then add to `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "excalidraw": {
+      "url": "https://localhost:3443/mcp"
+    }
+  }
+}
+```
+
+**Claude Code CLI connector** — after `docker compose up -d`:
 
 ```bash
-claude mcp add --transport http excalidraw http://localhost:3002/mcp
+claude mcp add --transport http excalidraw https://localhost:3443/mcp
 ```
 
 After editing config, restart Claude Desktop for tools to appear.

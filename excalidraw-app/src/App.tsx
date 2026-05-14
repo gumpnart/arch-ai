@@ -60,6 +60,10 @@ export default function App() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         appState: data.appState as any,
       });
+      if (data.files && Object.keys(data.files).length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        canvas.addFiles(Object.values(data.files) as any);
+      }
       setCurrent(name);
       if (!quiet) notify(`✅ Loaded ${name}`);
     } catch {
