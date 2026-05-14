@@ -65,6 +65,7 @@ services:
       - BRIDGE_URL=http://bridge:3001
       - KROKI_URL=http://kroki:8000
       - VAULT_PATH=/vault
+      - ERASER_API_KEY=${ERASER_API_KEY:-}
     depends_on:
       - bridge
       - kroki
@@ -87,6 +88,7 @@ services:
       - BRIDGE_URL=http://bridge:3001
       - KROKI_URL=http://kroki:8000
       - VAULT_PATH=/vault
+      - ERASER_API_KEY=${ERASER_API_KEY:-}
       - PORT=3002
     depends_on:
       - mcp-server
@@ -107,6 +109,19 @@ services:
       - ./certs:/certs
     depends_on:
       - mcp-http
+    networks:
+      - excalidraw-net
+
+  vault-editor:
+    build:
+      context: ./vault-editor
+      dockerfile: Dockerfile
+    container_name: excalidraw-vault-editor
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    depends_on:
+      - bridge
     networks:
       - excalidraw-net
 

@@ -8,6 +8,8 @@ RUN pnpm run build
 
 FROM node:20-alpine
 WORKDIR /app
+RUN apk add --no-cache git && \
+    git config --global --add safe.directory '*'
 RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --prod --frozen-lockfile

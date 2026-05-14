@@ -3,7 +3,11 @@ import cors from "@fastify/cors";
 import chokidar from "chokidar";
 import fs from "fs/promises";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import type { IncomingMessage, ServerResponse } from "http";
+
+const execFileAsync = promisify(execFile);
 
 const fastify = Fastify({ logger: false });
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -252,6 +256,87 @@ fastify.delete<{ Params: { "*": string } }>("/diagrams/*", async (request, reply
     return { success: true };
   } catch {
     reply.status(404).send({ error: "Diagram not found" });
+  }
+});
+
+// ─── Git routes ───────────────────────────────────────────────────────────────
+
+fastify.get("/git/status", async (_request, reply) => {
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", VAULT_DIR, "status", "--porcelain"]);
+    return { status: stdout.trim() };
+  } catch (err) {
+    reply.status(500).send({ error: String(err) });
+  }
+});
+
+fastify.post<{ Body: { message?: string } }>("/git/commit", async (request, reply) => {
+  const message = (request.body?.message ?? "docs: update vault").replace(/\n/g, " ").slice(0, 200);
+  try {
+    await execFileAsync("git", ["-C", VAULT_DIR, "add", "."]);
+    const { stdout } = await execFileAsync("git", ["-C", VAULT_DIR, "commit", "-m", message]);
+    try {
+      await execFileAsync("git", ["-C", VAULT_DIR, "push"]);
+    } catch {
+      // push is optional — no remote is fine
+    }
+    return { success: true, output: stdout.trim() };
+  } catch (err) {
+    reply.status(400).send({ error: String(err) });
+  }
+});
+
+fastify.post<{ Body: { url?: string; branch?: string } }>("/git/clone", async (request, reply) => {
+  const { url, branch } = request.body ?? {};
+  if (!url) {
+    return reply.status(400).send({ error: "url is required" });
+  }
+  // Basic URL sanity — only allow git/https/ssh schemes
+  if (!/^(https?:\/\/|git@|git:\/\/)/.test(url)) {
+    return reply.status(400).send({ error: "Invalid repository URL" });
+  }
+  try {
+    // Clone into a temp dir then replace vault contents
+    const tmpDir = `${VAULT_DIR}.__clone_tmp__`;
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    const cloneArgs = ["clone", "--depth", "1"];
+    if (branch) cloneArgs.push("--branch", branch);
+    cloneArgs.push(url, tmpDir);
+    await execFileAsync("git", cloneArgs, { timeout: 60_000 });
+    // Swap: remove old vault, rename tmp to vault
+    await fs.rm(VAULT_DIR, { recursive: true, force: true });
+    await fs.rename(tmpDir, VAULT_DIR);
+    console.log(`[bridge] vault replaced by clone of ${url}`);
+    return { success: true };
+  } catch (err) {
+    reply.status(500).send({ error: String(err) });
+  }
+});
+
+// ─── Diagram render (Kroki proxy) ────────────────────────────────────────────
+
+const KROKI_URL = process.env.KROKI_URL || "http://kroki:8000";
+
+fastify.post<{ Body: { format?: string; source?: string } }>("/diagrams/render", async (request, reply) => {
+  const { format, source } = request.body ?? {};
+  if (!format || !source) {
+    return reply.status(400).send({ error: "format and source are required" });
+  }
+  const allowed = ["mermaid", "plantuml", "graphviz", "d2", "c4plantuml", "erd", "nomnoml", "structurizr", "bpmn"];
+  if (!allowed.includes(format)) {
+    return reply.status(400).send({ error: `Unsupported format: ${format}` });
+  }
+  try {
+    const encoded = Buffer.from(source, "utf-8").toString("base64");
+    const res = await fetch(`${KROKI_URL}/${format}/svg/${encoded}`);
+    if (!res.ok) {
+      const body = await res.text();
+      return reply.status(422).send({ error: `Kroki error: ${body.slice(0, 200)}` });
+    }
+    const svg = await res.text();
+    return { svg };
+  } catch (err) {
+    reply.status(500).send({ error: String(err) });
   }
 });
 

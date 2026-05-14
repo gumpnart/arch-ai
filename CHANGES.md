@@ -1,5 +1,244 @@
 # Change Log
 
+## 2026-05-14 — feat: rebuild vault-editor as Astro + React + TipTap WYSIWYG editor
+
+### Overview
+
+Replaced the vanilla JS SPA vault-editor with a full **Astro + React** application featuring a **TipTap** WYSIWYG editor — similar to Medium or Confluence in style and interaction.
+
+### vault-editor (port 4000) — complete rewrite
+
+**Project setup**
+
+| File | Description |
+|---|---|
+| `vault-editor/package.json` | Astro 5, React 18, TipTap 2.x, tiptap-markdown, lowlight/highlight.js |
+| `vault-editor/astro.config.mjs` | `output: 'static'` with `@astrojs/react` integration |
+| `vault-editor/tsconfig.json` | Extends `astro/tsconfigs/strict` with React JSX |
+| `vault-editor/Dockerfile` | Multi-stage: node:20-alpine build → nginx:alpine serve |
+| `vault-editor/nginx.conf` | Same proxy rules (`/api/` → `bridge:3001/`); SSE route unchanged |
+
+**React components**
+
+| Component | Description |
+|---|---|
+| `App.tsx` | Root layout: topbar, sidebar, main editor area, statusbar; holds editor ref for diagram insertion |
+| `Sidebar.tsx` | Collapsible folder groups, file search, per-file delete button |
+| `Editor.tsx` | TipTap editor with `forwardRef`; bubble menu (bold/italic/strike/code/link/H1/H2); floating menu (H1–H3, lists, task list, code block, quote, table, diagram); Ctrl+S save; frontmatter preserved and shown in toggle panel |
+| `DiagramModal.tsx` | Format selector (mermaid, plantuml, graphviz, d2, c4plantuml, erd, nomnoml); code editor; Kroki live preview via bridge; saves diagram `.md` to vault; inserts embed code into editor |
+| `GitModal.tsx` | Two tabs: **Status & Commit** (git status + commit message + push) and **Clone Repository** (URL + branch → clones into vault) |
+| `NewFileModal.tsx` | Folder picker + name input; auto-generates YAML frontmatter template |
+| `Toast.tsx` | Fixed-position toast notifications (success/error/info) |
+
+**Hooks & lib**
+
+| File | Description |
+|---|---|
+| `src/hooks/useSSE.ts` | EventSource client with auto-reconnect; drives sidebar refresh on diagram events |
+| `src/lib/api.ts` | Typed fetch wrappers for all bridge endpoints including `gitClone` and `renderDiagram` |
+| `src/styles/global.css` | Catppuccin Mocha dark theme; full TipTap prose styles; syntax highlighting; all component styles |
+
+### bridge — new endpoints
+
+| Route | Description |
+|---|---|
+| `POST /git/clone` | Clones a remote repository into `VAULT_DIR` (replaces existing content); validates URL scheme; `depth=1` for speed |
+| `POST /diagrams/render` | Proxies source code to Kroki for SVG rendering; returns `{ svg }`; used by the vault-editor DiagramModal for live preview |
+
+---
+
+## 2026-05-14 — feat: replace Obsidian+CouchDB with lightweight vault-editor web app
+
+### Motivation
+
+Removed the heavy `obsidian` (noVNC) and `couchdb` (LiveSync database) containers. The vault folder structure is preserved exactly as before; vault data is versioned with git instead of a database. A new `vault-editor` service (nginx + static SPA) provides browser-based markdown editing.
+
+### Removed
+
+- `obsidian` service (`ghcr.io/sytone/obsidian-remote`, port 8080)
+- `couchdb` service (`couchdb:3`, port 5984)
+- `couchdb-data` named volume
+- `couchdb/local.ini` no longer referenced by any service
+
+### Added — `vault-editor/` service (port 4000)
+
+| File | Description |
+|---|---|
+| `vault-editor/Dockerfile` | nginx:alpine serving static files |
+| `vault-editor/nginx.conf` | Proxies `/api/` → `bridge:3001/`; SSE route with buffering disabled |
+| `vault-editor/public/index.html` | Single-page markdown editor SPA |
+
+**SPA features:**
+- Sidebar file tree with Obsidian folder order (`Architecture`, `Flows`, `Sequences`, `Infrastructure`, `Notes`)
+- Edit / Split / Preview mode toggle
+- Ctrl+S save; dirty-state indicator
+- **+ New** — creates `.md` with YAML frontmatter in any vault folder
+- **Delete** — removes the open file after confirmation
+- **⎇ Commit** — shows `git status --porcelain`, accepts a commit message, calls `POST /api/git/commit`
+- SSE integration: sidebar auto-refreshes on `diagram_added` / `diagram_removed` events from the bridge
+
+### Added — bridge git endpoints (`bridge/src/index.ts`)
+
+| Route | Description |
+|---|---|
+| `GET /git/status` | Runs `git -C VAULT_DIR status --porcelain`; returns `{ status }` |
+| `POST /git/commit` | `git add .` → `git commit -m <message>` → `git push` (push non-fatal); returns `{ success, output }` |
+
+### Updated — `bridge/Dockerfile`
+
+Added `apk add --no-cache git` and `git config --global --add safe.directory '*'` to the runtime stage so the bridge can run git commands against the mounted vault volume.
+
+### `docker-compose.yml`
+
+- `vault-editor` service added: port `4000:4000`, depends on `bridge`
+- `obsidian`, `couchdb` services removed
+- `couchdb-data` volume removed
+- Service count: 8 → 7
+
+---
+
+## 2026-05-14 — refactor: Obsidian-centric workflow — documents first, Excalidraw optional (v1.4.0)
+
+### Overview
+
+The MCP server is now **Obsidian-first**. Documents are the primary deliverable; diagrams are embedded resources. Excalidraw is an optional live-preview layer, not the required destination for every diagram.
+
+### Rendering strategy (new)
+
+| Format | Asset | Obsidian embed | Excalidraw |
+|---|---|---|---|
+| `mermaid` | none (inline code block) | ` ```mermaid ``` ` — renders natively | optional via `scene` |
+| Kroki (plantuml, graphviz, d2, …) | `{folder}/Assets/{name}.svg` | `![[Assets/name.svg]]` | optional via `scene` |
+| Eraser.io | `{folder}/Assets/{name}.png` | `![[Assets/name.png]]` | optional via `scene` |
+
+### Tool changes (`mcp-server/src/handlers.ts`, `1.3.0` → `1.4.0`)
+
+| Tool | Change |
+|---|---|
+| `create_diagram` | `scene` removed from **required** — now optional. Mermaid stored as inline code block; other formats render SVG to `{folder}/Assets/`. |
+| `create_eraser_diagram` | `scene` removed from **required** — now optional. PNG saved to `{folder}/Assets/`. |
+| `update_diagram` | Now handles all three cases: Obsidian-only, mermaid+Excalidraw, SVG/PNG+Excalidraw. |
+| `create_note` | **Removed** — replaced by `create_document`. |
+| `create_document` | **New primary tool.** Structured document with `sections: [{heading, body?, diagram?}]`. When a section has a `diagram` path, auto-reads the diagram `.md` and inserts the correct embed (mermaid inline or `![[asset]]`). |
+
+### Helper changes
+
+- `buildMarkdown` replaced by `buildObsidianMarkdown` — uses `asset` field for `![[…]]` embed; omits asset embed for mermaid; Excalidraw fields optional.
+- New `saveAsset(vaultPath, folder, name, data, ext)` — writes to `{folder}/Assets/`.
+- New `getDiagramEmbed(vaultPath, diagramPath)` — reads diagram `.md` and returns the correct Obsidian embed string for use in `create_document`.
+
+### `mcp-server/src/types.ts`
+
+- `DiagramFrontmatter`: `scene`, `fileId`, `elementId` are now optional; new optional fields `asset` and `diagramType`.
+
+### `sample-project/`
+
+Updated to show the new Obsidian-centric flow:
+- Architecture → Mermaid inline (no asset)
+- Sequence → PlantUML via Kroki → `Assets/order-placement.svg`
+- Cloud → Eraser.io → `Assets/cloud-architecture.png`
+- Final document → `create_document` with sections embedding all three
+
+---
+
+## 2026-05-14 — feat: Obsidian project init, note creation, Eraser.io diagram support + sample project
+
+### Scope
+
+Repo refocused as an **MCP server + container services** platform. Excalidraw is a diagram renderer embedded in the workflow, not the primary product. Three new MCP tools added; a sample project demonstrates the full document-generation workflow.
+
+### New MCP tools (`mcp-server/src/handlers.ts`, version `1.2.0` → `1.3.0`)
+
+| Tool | Description |
+|---|---|
+| `init_project` | Scaffold a new Obsidian-compatible vault under `VAULT_PATH` with standard folders, `README.md`, `.obsidian/app.json`, `.gitignore`, and an initial git commit |
+| `create_note` | Write an Obsidian markdown note with YAML frontmatter; embed diagram sources via `![[path]]` |
+| `create_eraser_diagram` | Render diagram via **Eraser.io API** → PNG → embed in Excalidraw; save source in vault; auto-commit |
+
+### Eraser.io integration
+
+- New `ERASER_API_KEY` env var on `mcp-server` and `mcp-http` services (sourced from host `$ERASER_API_KEY`, defaults to empty).
+- New `renderWithEraser()` helper: POSTs to `https://app.eraser.io/api/render/prompt` with `returnFile: true`, returns PNG buffer.
+- New `pngDimensions()` helper: reads IHDR chunk (bytes 16–23) for width/height; scales to max 1200 px.
+- Supported `diagram_type` values: `flowchart`, `sequenceDiagram`, `classDiagram`, `entityRelationshipDiagram`, `cloudArchitectureDiagram`, `mindmap`.
+- Vault `.md` format uses `format: eraser` + `diagramType` frontmatter fields.
+
+### `docker-compose.yml`
+
+- Added `ERASER_API_KEY=${ERASER_API_KEY:-}` to both `mcp-server` and `mcp-http` environment blocks.
+
+### `sample-project/`
+
+New directory demonstrating a full document-generation workflow (Order Management System):
+
+```
+sample-project/
+├── README.md                          ← 6-step workflow with exact MCP prompts
+└── vault/                             ← pre-built example output vault
+    ├── README.md
+    ├── .gitignore
+    ├── Architecture/system-overview.md
+    ├── Flows/checkout-flow.md
+    ├── Sequences/order-placement.md
+    └── Notes/system-documentation.md
+```
+
+### How to enable Eraser.io
+
+```powershell
+$env:ERASER_API_KEY = "your-key"
+docker compose up -d mcp-server mcp-http
+```
+
+Get an API key at https://app.eraser.io/workspace/settings.
+
+---
+
+## 2026-05-14 — chore: add MCP interaction rule — Claude always asks which scene before acting
+
+Added a behavioral rule to `CLAUDE.md` that instructs Claude to confirm the target scene or diagram before calling any MCP tool that writes to or reads a specific scene/diagram.
+
+**Rule summary:**
+- Before any scene-targeting MCP call, Claude calls `list_scenes` and asks the user to pick.
+- For `create_diagram` / `update_diagram` without a specified path, Claude also asks which vault folder (`Architecture/`, `Flows/`, `Sequences/`, `Infrastructure/`).
+- Exceptions: the user already names the scene in their message; read-only listing tools (`list_scenes`, `list_diagrams`, `git_log`, `git_status`).
+
+---
+
+## 2026-05-14 — feat: add self-hosted Obsidian browser UI + CouchDB LiveSync containers
+
+### Overview
+
+Added two new Docker services to support vault management and cross-device sync:
+
+- **`obsidian`** (`ghcr.io/sytone/obsidian-remote`) — runs the full Obsidian desktop app in a browser-accessible VNC session (port 8080). The `diagrams-vault/` is mounted at `/vaults/diagrams-vault` inside the container; open it via **Open folder as vault** on first launch.
+- **`couchdb`** (`couchdb:3`) — CouchDB database on port 5984, pre-configured with CORS for the [Self-hosted LiveSync](https://github.com/vrtmrz/obsidian-livesync) plugin. Enables vault sync between the browser Obsidian instance and any desktop Obsidian client.
+
+### New files
+
+- **`couchdb/local.ini`** — CouchDB CORS configuration (origins `*`, all methods, standard headers); bind-mounted into the container at `/opt/couchdb/etc/local.ini`.
+
+### `docker-compose.yml`
+
+- Added `obsidian` service: port `8080:8080`, volume `./diagrams-vault:/vaults/diagrams-vault`, network `excalidraw-net`.
+- Added `couchdb` service: port `5984:5984`, named volume `couchdb-data` for data persistence, bind-mount `./couchdb/local.ini`, env `COUCHDB_USER=admin` / `COUCHDB_PASSWORD=obsidian`, network `excalidraw-net`.
+- Added `couchdb-data` to the top-level `volumes` block.
+
+### One-time CouchDB setup (after first `docker compose up`)
+
+```bash
+curl -X PUT http://admin:obsidian@localhost:5984/obsidian-vault
+```
+
+Then connect the Self-hosted LiveSync plugin in Obsidian to `http://localhost:5984` with database `obsidian-vault`.
+
+### `README.md`
+
+- Updated services table (six → eight containers).
+- Added sections **3a** (Obsidian in browser) and **3b** (CouchDB LiveSync setup).
+
+---
+
 ## 2026-05-14 — chore: align OAuth provider with MCP TypeScript SDK v1.29.0 reference implementation
 
 Updated `mcp-server/src/http-server.ts` to match the SDK's v1.29.0 `demoInMemoryOAuthProvider` patterns:

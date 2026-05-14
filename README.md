@@ -1,6 +1,22 @@
 # Excalidraw MCP
 
-Connect Claude to a self-hosted Excalidraw instance. Claude can draw shapes, build architecture diagrams, and render **diagram-as-code** (Mermaid, PlantUML, Graphviz, D2, and 20+ more) — all visible live in your browser. Diagram sources are stored as Markdown files in an Obsidian-compatible vault with full git history.
+**Obsidian-centric MCP server + Docker stack** for generating software architecture documentation.
+
+```
+MCP commands
+  init_project        ──►  Obsidian vault (folder structure + git)
+  create_diagram      ──►  mermaid: inline code block (Obsidian-native)
+  (Kroki: 20+ formats)      other:   {folder}/Assets/{name}.svg + ![[…]] embed
+  create_eraser_diagram ──► {folder}/Assets/{name}.png + ![[…]] embed  (Eraser.io API)
+  create_document     ──►  Structured .md: sections + auto-embedded diagrams
+                                    ↓
+                       Obsidian vault  ←  primary output, open and read immediately
+                       Excalidraw      ←  optional live-preview (add scene param)
+```
+
+The vault is the deliverable. Excalidraw, Kroki, and Eraser.io are pluggable renderers.
+
+See [`sample-project/`](sample-project/) for a complete worked example.
 
 ```
 Claude Desktop  ──stdio (docker exec)──►  mcp-server  ─┐
@@ -16,6 +32,37 @@ Claude Desktop / Claude Code  ──HTTPS──►  mcp-tls  ────►  mc
                            mcp-tls = nginx with self-signed cert (trusted once via PowerShell).
                            diagrams-vault/ is a separate git repo for versionable sources.
 ```
+
+---
+
+## How Claude asks about projects
+
+Before calling any MCP tool that targets a specific scene, Claude will:
+1. Call `list_scenes` to show what exists
+2. Ask you to pick a scene (or confirm if only one is open)
+3. Then execute the requested action
+
+For diagram tools, Claude will also ask which vault folder (`Architecture/`, `Flows/`, `Sequences/`, `Infrastructure/`) if you haven't specified one.
+
+**To skip the prompt:** name the scene in your message — e.g. *"add a rectangle to architecture.excalidraw"* or *"create a flow diagram in Flows/"*.
+
+---
+
+## Vault Editor (port 4000)
+
+A browser-based Markdown editor for vault files, rebuilt with Astro + React.
+
+| Feature | Details |
+|---|---|
+| **WYSIWYG editor** | TipTap with Medium/Confluence-style formatting |
+| **Bubble menu** | Bold, italic, strikethrough, code, link — appears on text selection |
+| **Floating menu** | H1–H3, lists, tasks, code block, blockquote, table, diagram — appears on empty lines |
+| **Frontmatter** | Toggle panel shows preserved YAML frontmatter |
+| **Diagram insert** | ◈ Diagram button opens modal: pick format, write source, preview via Kroki, save to vault |
+| **Git status & commit** | ⎇ Git modal with Status/Commit tab and Clone Repository tab |
+| **Clone from git** | Replaces vault content by cloning a remote repository into `VAULT_DIR` |
+| **SSE sync** | Sidebar auto-refreshes when Claude/MCP tools add or remove files |
+| **Ctrl+S save** | Keyboard shortcut + Save button — serializes TipTap content back to Markdown |
 
 ---
 
@@ -38,7 +85,7 @@ Claude Desktop / Claude Code  ──HTTPS──►  mcp-tls  ────►  mc
 docker compose up --build -d
 ```
 
-This starts six containers:
+This starts seven containers:
 
 | Service | URL | Purpose |
 |---|---|---|
@@ -49,6 +96,7 @@ This starts six containers:
 | `mcp-server` | — | Keepalive container for Claude Desktop `docker exec` stdio |
 | `mcp-http` | http://localhost:3002 | Streamable HTTP transport (internal — proxied by mcp-tls) |
 | `mcp-tls` | **https://localhost:3443** | HTTPS/TLS proxy for Claude Desktop + Claude Code connectors |
+| `vault-editor` | **http://localhost:4000** | Web markdown editor — browse and edit vault `.md` files |
 
 Both `mcp-server` and `mcp-http` share the same built image (`excalidraw-mcp-server`), so `--build` only compiles once.
 
@@ -67,6 +115,35 @@ bash setup-vault.sh
 It will:
 1. Initialise `diagrams-vault/` as a git repo
 2. Optionally add a GitHub remote and push
+
+---
+
+### 3a. Vault Editor (`vault-editor` container)
+
+Open **http://localhost:4000** to browse and edit all `.md` files in `diagrams-vault/`.
+
+**Features:**
+- Sidebar file tree mirroring the Obsidian folder structure (`Architecture/`, `Flows/`, `Sequences/`, `Infrastructure/`, `Notes/`)
+- **Edit / Split / Preview** modes — split shows editor and rendered markdown side by side
+- **Ctrl+S** saves the current file
+- **+ New** creates a new `.md` file in any folder with YAML frontmatter pre-filled
+- **Delete** removes the current file
+- **⎇ Commit** stages all vault changes, commits with a custom message, and pushes to the configured remote
+- SSE live-reload: the sidebar refreshes automatically when Claude writes new files via MCP tools
+
+> The vault uses **git** for version control — no database required. Run `bash setup-vault.sh` once to initialise `diagrams-vault/` as a git repo and optionally connect a GitHub remote.
+
+**To explore the sample project**, set `VAULT_DIR` in `docker-compose.yml` to `./sample-project/vault` and restart the bridge:
+
+```yaml
+- VAULT_DIR=/sample-project-vault
+```
+
+and add the mount:
+
+```yaml
+- ./sample-project/vault:/sample-project-vault
+```
 
 ---
 
@@ -218,7 +295,32 @@ Add `https://xxxx.ngrok-free.app/mcp` to claude.ai.
 | `git_log` | View diagram commit history |
 | `git_status` | Check remote, branch, and uncommitted changes |
 
-**Supported diagram formats** (via Kroki): `mermaid` · `plantuml` · `graphviz` · `d2` · `c4plantuml` · `structurizr` · `bpmn` · `erd` · `nomnoml` · and ~15 more.
+**Supported Kroki formats**: `mermaid` · `plantuml` · `graphviz` · `d2` · `c4plantuml` · `structurizr` · `bpmn` · `erd` · `nomnoml` · and ~15 more.
+
+### Project / document tools (Obsidian-first)
+
+| Tool | Description |
+|---|---|
+| `init_project` | Scaffold a new Obsidian vault at `VAULT_PATH/<name>/` — standard folders, README, `.obsidian/app.json`, `.gitignore`, initial git commit |
+| `create_document` | **Primary document tool.** Structured `.md` with sections; each section can embed a diagram — mermaid inserted inline, SVG/PNG via `![[…]]` |
+| `create_eraser_diagram` | Render via **Eraser.io API** → PNG saved to `{folder}/Assets/`; `.md` source file with `![[…]]` embed; optionally also push to Excalidraw |
+
+**Eraser.io `diagram_type`**: `flowchart` · `sequenceDiagram` · `classDiagram` · `entityRelationshipDiagram` · `cloudArchitectureDiagram` · `mindmap`
+
+To enable Eraser.io:
+```powershell
+$env:ERASER_API_KEY = "your-key"
+docker compose up -d mcp-server mcp-http
+```
+Get a key at https://app.eraser.io/workspace/settings.
+
+### Rendering matrix
+
+| Format | Where stored | Obsidian embed | Excalidraw |
+|---|---|---|---|
+| `mermaid` | inline in `.md` | ` ```mermaid ``` ` native | optional |
+| Kroki (plantuml, d2, …) | `{folder}/Assets/{name}.svg` | `![[…svg]]` | optional |
+| Eraser.io | `{folder}/Assets/{name}.png` | `![[…png]]` | optional |
 
 ---
 

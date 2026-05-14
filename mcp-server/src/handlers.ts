@@ -21,6 +21,7 @@ import type {
 const BRIDGE_URL = process.env.BRIDGE_URL ?? "http://localhost:3001";
 const KROKI_URL = process.env.KROKI_URL ?? "http://localhost:8000";
 const VAULT_PATH = process.env.VAULT_PATH ?? "";
+const ERASER_API_KEY = process.env.ERASER_API_KEY ?? "";
 
 // ─── Bridge helpers ──────────────────────────────────────────────────────────
 
@@ -121,6 +122,49 @@ function randomInt(): number {
   return Math.floor(Math.random() * 2 ** 31);
 }
 
+// ─── Eraser.io helpers ────────────────────────────────────────────────────────
+
+async function renderWithEraser(
+  source: string,
+  diagramType: string,
+  theme: string
+): Promise<Buffer> {
+  if (!ERASER_API_KEY) {
+    throw new Error(
+      "ERASER_API_KEY env var is not set — add it to docker-compose.yml and restart the mcp-http container."
+    );
+  }
+  const res = await fetch("https://app.eraser.io/api/render/prompt", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ERASER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: source, diagramType, background: true, theme, scale: 2, returnFile: true }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Eraser.io render failed (${res.status}): ${body}`);
+  }
+  return Buffer.from(await res.arrayBuffer());
+}
+
+function pngDimensions(buf: Buffer): { width: number; height: number } {
+  if (buf.length > 24) {
+    const w = buf.readUInt32BE(16);
+    const h = buf.readUInt32BE(20);
+    if (w > 0 && h > 0) {
+      const maxDim = 1200;
+      if (w > maxDim || h > maxDim) {
+        const s = maxDim / Math.max(w, h);
+        return { width: Math.round(w * s), height: Math.round(h * s) };
+      }
+      return { width: w, height: h };
+    }
+  }
+  return { width: 800, height: 600 };
+}
+
 // ─── Vault helpers ────────────────────────────────────────────────────────────
 
 function requireVaultPath(): string {
@@ -128,25 +172,59 @@ function requireVaultPath(): string {
   return VAULT_PATH;
 }
 
-function buildMarkdown(fm: DiagramFrontmatter, source: string): string {
+function buildObsidianMarkdown(fm: DiagramFrontmatter, source: string): string {
   const tags = fm.tags?.length ? `\ntags: [${fm.tags.join(", ")}]` : "";
+  const diagramTypeField = fm.diagramType ? `\ndiagramType: ${fm.diagramType}` : "";
+  const assetField = fm.asset ? `\nasset: ${fm.asset}` : "";
+  const excalidrawFields = fm.scene
+    ? `\nscene: ${fm.scene}\nfileId: ${fm.fileId}\nelementId: ${fm.elementId}`
+    : "";
   const desc = fm.description ? `\n> ${fm.description}\n` : "";
+  // Rendered image embed — only for non-mermaid formats that produce a file asset
+  const imageEmbed = fm.asset ? `\n![[${fm.asset}]]\n` : "";
+  const codeLabel = fm.format === "eraser" ? "eraser" : fm.format;
   return `---
 title: ${fm.title}
-format: ${fm.format}
-scene: ${fm.scene}
-fileId: ${fm.fileId}
-elementId: ${fm.elementId}${tags}
+format: ${fm.format}${diagramTypeField}${assetField}${excalidrawFields}${tags}
 created: ${fm.created}
 updated: ${fm.updated}
 ---
 
 # ${fm.title}
-${desc}
-\`\`\`${fm.format}
+${desc}${imageEmbed}
+\`\`\`${codeLabel}
 ${source.trimEnd()}
 \`\`\`
 `;
+}
+
+async function saveAsset(
+  vaultPath: string,
+  folder: string,
+  name: string,
+  data: string | Buffer,
+  ext: "svg" | "png"
+): Promise<string> {
+  const assetsDir = path.join(vaultPath, folder, "Assets");
+  await mkdir(assetsDir, { recursive: true });
+  const filename = `${name}.${ext}`;
+  if (ext === "svg") {
+    await writeFile(path.join(assetsDir, filename), data as string, "utf-8");
+  } else {
+    await writeFile(path.join(assetsDir, filename), data as Buffer);
+  }
+  return `${folder}/Assets/${filename}`;
+}
+
+async function getDiagramEmbed(vaultPath: string, diagramPath: string): Promise<string> {
+  const normalized = diagramPath.replace(/\\/g, "/");
+  const mdPath = path.join(vaultPath, normalized.endsWith(".md") ? normalized : `${normalized}.md`);
+  if (!existsSync(mdPath)) return `<!-- diagram not found: ${diagramPath} -->\n`;
+  const content = await readFile(mdPath, "utf-8");
+  const { fm, source } = parseFrontmatter(content);
+  if (fm.format === "mermaid") return `\`\`\`mermaid\n${source}\n\`\`\`\n`;
+  if (fm.asset) return `![[${fm.asset}]]\n`;
+  return `[[${normalized}]]\n`;
 }
 
 function parseFrontmatter(content: string): { fm: Partial<DiagramFrontmatter>; source: string } {
@@ -431,24 +509,31 @@ Claude should use this for diagrams rather than calling add_elements manually.`,
   // ─── Diagram-as-code tools ─────────────────────────────────────────────────
   {
     name: "create_diagram",
-    description: `Write diagram source code to the Obsidian vault, render via Kroki, and place the SVG as an image element in an Excalidraw scene.
-Supported formats: mermaid, plantuml, graphviz, d2, c4plantuml, structurizr, bpmn, erd, nomnoml, and more.
+    description: `Create a diagram from source code, store it in the Obsidian vault, and optionally push to an Excalidraw scene for live preview.
+
+Primary output (always): an Obsidian-compatible .md file with the source and a rendered embed.
+  • mermaid  → inline \`\`\`mermaid code block (Obsidian renders natively — no asset file)
+  • plantuml / graphviz / d2 / etc. → rendered SVG saved to {folder}/Assets/{name}.svg → ![[…]] embed
+
+Secondary output (optional): pass scene to also push to an Excalidraw canvas.
+
+Supported Kroki formats: mermaid, plantuml, graphviz, d2, c4plantuml, structurizr, bpmn, erd, nomnoml, and 15+ more.
 Auto-commits and pushes to git if a remote is configured.`,
     inputSchema: {
       type: "object",
       properties: {
-        folder: { type: "string", description: "Vault subfolder (e.g. 'Architecture', 'Flows'). Created if it doesn't exist." },
+        folder: { type: "string", description: "Vault subfolder (e.g. 'Architecture', 'Flows'). Created if absent." },
         name: { type: "string", description: "Diagram filename without .md (e.g. 'system-overview')." },
         title: { type: "string", description: "Human-readable title." },
-        format: { type: "string", description: "Kroki diagram format: mermaid | plantuml | graphviz | d2 | c4plantuml | structurizr | bpmn | erd | nomnoml | etc." },
+        format: { type: "string", description: "Kroki format: mermaid | plantuml | graphviz | d2 | c4plantuml | structurizr | bpmn | erd | nomnoml | etc." },
         source: { type: "string", description: "Diagram source code." },
-        scene: { type: "string", description: "Excalidraw scene name to place the image in." },
-        description: { type: "string", description: "Optional one-line description." },
-        tags: { type: "array", items: { type: "string" }, description: "Optional tags for Obsidian." },
-        x: { type: "number", description: "X position in scene (default 50)." },
-        y: { type: "number", description: "Y position in scene (default 50)." },
+        scene: { type: "string", description: "Optional: Excalidraw scene name for live-preview. Omit to produce Obsidian-only output." },
+        description: { type: "string", description: "One-line description written into the .md." },
+        tags: { type: "array", items: { type: "string" }, description: "Obsidian tags." },
+        x: { type: "number", description: "X position in scene (default 50; only used when scene is set)." },
+        y: { type: "number", description: "Y position in scene (default 50; only used when scene is set)." },
       },
-      required: ["folder", "name", "title", "format", "source", "scene"],
+      required: ["folder", "name", "title", "format", "source"],
     },
   },
   {
@@ -513,6 +598,98 @@ Auto-commits and pushes to git if a remote is configured.`,
     name: "git_status",
     description: "Show the git status of the diagrams vault including remote configuration.",
     inputSchema: { type: "object", properties: {} },
+  },
+  // ─── Project / Obsidian tools ──────────────────────────────────────────────
+  {
+    name: "init_project",
+    description: `Initialise a new Obsidian-compatible project vault under VAULT_PATH.
+Creates standard folder structure, README.md, .obsidian config, .gitignore, and an initial git commit.
+The resulting directory can be opened directly in Obsidian as a vault.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Project name — becomes the vault directory name and README title." },
+        description: { type: "string", description: "Short project description written into README.md." },
+        folders: {
+          type: "array",
+          items: { type: "string" },
+          description: "Subfolder list. Defaults to Architecture, Flows, Sequences, Infrastructure, Notes, Assets.",
+        },
+        git_init: { type: "boolean", description: "Initialise a git repository with an initial commit (default true)." },
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "create_document",
+    description: `Create an Obsidian document (the primary deliverable in the workflow).
+
+Documents are structured markdown files with YAML frontmatter, an intro body, and named sections.
+Each section can contain body text AND/OR a diagram embed — the tool reads the diagram's .md file and
+auto-inserts the correct Obsidian embed:
+  • mermaid diagrams  → inline \`\`\`mermaid code block
+  • SVG/PNG diagrams  → ![[folder/Assets/name.svg|png]]
+
+Typical workflow:
+  1. init_project  → create vault
+  2. create_diagram / create_eraser_diagram  → create diagrams
+  3. create_document  → compose the final document referencing those diagrams`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        folder: { type: "string", description: "Vault subfolder (e.g. 'Notes', 'Architecture')." },
+        name: { type: "string", description: "Document filename without .md." },
+        title: { type: "string", description: "Document title (H1 heading)." },
+        body: { type: "string", description: "Introductory markdown content before the first section." },
+        tags: { type: "array", items: { type: "string" }, description: "Obsidian tags." },
+        sections: {
+          type: "array",
+          description: "Ordered list of document sections.",
+          items: {
+            type: "object",
+            properties: {
+              heading: { type: "string", description: "Section heading (H2)." },
+              body: { type: "string", description: "Section body text (markdown)." },
+              diagram: { type: "string", description: "Vault-relative path to a diagram .md file to embed (e.g. 'Architecture/system-overview.md')." },
+            },
+            required: ["heading"],
+          },
+        },
+      },
+      required: ["folder", "name", "title"],
+    },
+  },
+  {
+    name: "create_eraser_diagram",
+    description: `Render a diagram via the Eraser.io API and store it in the Obsidian vault.
+
+Primary output (always): PNG saved to {folder}/Assets/{name}.png + .md source file with ![[…]] embed.
+Secondary output (optional): pass scene to also push to an Excalidraw canvas for live preview.
+
+Requires ERASER_API_KEY env var. Source can be Eraser diagram-as-code or a natural-language description.
+Supported diagram_type values: flowchart, sequenceDiagram, classDiagram, entityRelationshipDiagram, cloudArchitectureDiagram, mindmap.
+Auto-commits and pushes to git if a remote is configured.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        folder: { type: "string", description: "Vault subfolder (e.g. 'Flows', 'Architecture')." },
+        name: { type: "string", description: "Diagram filename without .md." },
+        title: { type: "string", description: "Human-readable title." },
+        source: { type: "string", description: "Eraser diagram-as-code or natural-language prompt." },
+        diagram_type: {
+          type: "string",
+          enum: ["flowchart", "sequenceDiagram", "classDiagram", "entityRelationshipDiagram", "cloudArchitectureDiagram", "mindmap"],
+          description: "Eraser diagram type.",
+        },
+        scene: { type: "string", description: "Optional: Excalidraw scene for live preview. Omit for Obsidian-only output." },
+        theme: { type: "string", enum: ["light", "dark"], description: "Diagram colour theme (default light)." },
+        description: { type: "string", description: "One-line description written into the .md." },
+        tags: { type: "array", items: { type: "string" }, description: "Obsidian tags." },
+        x: { type: "number", description: "X position in scene (default 50; only used when scene is set)." },
+        y: { type: "number", description: "Y position in scene (default 50; only used when scene is set)." },
+      },
+      required: ["folder", "name", "title", "source", "diagram_type"],
+    },
   },
 ];
 
@@ -701,50 +878,68 @@ async function handleCreateDiagram(args: Record<string, unknown>) {
   const title = args.title as string;
   const format = args.format as string;
   const source = args.source as string;
-  const sceneName = ensureExt(args.scene as string);
+  const sceneName = args.scene ? ensureExt(args.scene as string) : null;
   const description = args.description as string | undefined;
   const tags = args.tags as string[] | undefined;
   const x = (args.x as number | undefined) ?? 50;
   const y = (args.y as number | undefined) ?? 50;
-
-  const svg = await renderWithKroki(format, source);
-  const { width, height } = extractSvgDimensions(svg);
-  const dataUrl = svgToDataUrl(svg);
-
-  const fileId = makeFileId();
-  const elementId = makeElementId();
   const now = new Date().toISOString().split("T")[0];
 
-  const scene = await getScene(sceneName);
-  const fileEntry: ExcalidrawFileEntry = {
-    mimeType: "image/svg+xml",
-    id: fileId,
-    dataURL: dataUrl,
-    created: Date.now(),
-    lastRetrieved: Date.now(),
-  };
-  scene.files[fileId] = fileEntry;
-  scene.elements = [...scene.elements, makeImageElement(elementId, fileId, x, y, width, height)];
-  await putScene(sceneName, scene);
+  let assetPath: string | undefined;
+  let fileId: string | undefined;
+  let elementId: string | undefined;
+
+  if (format === "mermaid") {
+    // Mermaid renders natively in Obsidian — no asset file needed.
+    // Optionally also push to an Excalidraw scene for live preview.
+    if (sceneName) {
+      const svg = await renderWithKroki(format, source);
+      const { width, height } = extractSvgDimensions(svg);
+      fileId = makeFileId();
+      elementId = makeElementId();
+      const scene = await getScene(sceneName);
+      scene.files[fileId] = { mimeType: "image/svg+xml", id: fileId, dataURL: svgToDataUrl(svg), created: Date.now(), lastRetrieved: Date.now() };
+      scene.elements = [...scene.elements, makeImageElement(elementId, fileId, x, y, width, height)];
+      await putScene(sceneName, scene);
+    }
+  } else {
+    // All other Kroki formats: render SVG → save to {folder}/Assets/{name}.svg
+    const svg = await renderWithKroki(format, source);
+    const { width, height } = extractSvgDimensions(svg);
+    assetPath = await saveAsset(vaultPath, folder, name, svg, "svg");
+
+    if (sceneName) {
+      fileId = makeFileId();
+      elementId = makeElementId();
+      const scene = await getScene(sceneName);
+      scene.files[fileId] = { mimeType: "image/svg+xml", id: fileId, dataURL: svgToDataUrl(svg), created: Date.now(), lastRetrieved: Date.now() };
+      scene.elements = [...scene.elements, makeImageElement(elementId, fileId, x, y, width, height)];
+      await putScene(sceneName, scene);
+    }
+  }
 
   const fm: DiagramFrontmatter = {
-    title, format, scene: sceneName, fileId, elementId, tags,
+    title, format, tags, asset: assetPath,
+    scene: sceneName ?? undefined, fileId, elementId,
     created: now, updated: now, description,
   };
-  const mdContent = buildMarkdown(fm, source);
+  const mdContent = buildObsidianMarkdown(fm, source);
   const folderPath = path.join(vaultPath, folder);
   await mkdir(folderPath, { recursive: true });
   await writeFile(path.join(folderPath, `${name}.md`), mdContent, "utf-8");
-
   const gitResult = await gitCommitAndPush(vaultPath, `add diagram: ${folder}/${name}`);
 
-  return ok(
-    `Created diagram "${title}" (${format})\n` +
-    `Vault: ${folder}/${name}.md\n` +
-    `Scene: ${sceneName} (elementId: ${elementId}, fileId: ${fileId})\n` +
-    `Size: ${Math.round(width)}×${Math.round(height)}\n` +
-    `Git: ${gitResult}`
-  );
+  return ok([
+    `Created diagram "${title}" (${format})`,
+    `Vault: ${folder}/${name}.md`,
+    assetPath
+      ? `Asset: ${assetPath} — embed with ![[${assetPath}]]`
+      : `Render: inline \`\`\`mermaid block (Obsidian renders natively)`,
+    sceneName
+      ? `Excalidraw: ${sceneName} (elementId: ${elementId})`
+      : `Excalidraw: (none — omit scene param or add later with render_diagram)`,
+    `Git: ${gitResult}`,
+  ].join("\n"));
 }
 
 async function handleUpdateDiagram(args: Record<string, unknown>) {
@@ -757,43 +952,60 @@ async function handleUpdateDiagram(args: Record<string, unknown>) {
 
   const content = await readFile(mdPath, "utf-8");
   const { fm } = parseFrontmatter(content);
-
-  if (!fm.format || !fm.scene || !fm.fileId) {
-    return err("Diagram frontmatter is missing required fields (format, scene, fileId)");
-  }
-
-  const sceneName = ensureExt(fm.scene);
-  const svg = await renderWithKroki(fm.format, newSource);
-  const dataUrl = svgToDataUrl(svg);
-
-  const scene = await getScene(sceneName);
-  if (!scene.files[fm.fileId]) {
-    return err(`fileId "${fm.fileId}" not found in scene "${sceneName}". Use render_diagram to re-add it.`);
-  }
-  scene.files[fm.fileId] = { ...scene.files[fm.fileId], dataURL: dataUrl, lastRetrieved: Date.now() };
-  await putScene(sceneName, scene);
+  if (!fm.format) return err("Diagram frontmatter is missing required field: format");
 
   const now = new Date().toISOString().split("T")[0];
+  const lines: string[] = [`Updated diagram: ${relPath}`];
+
+  if (fm.format === "eraser") {
+    // Re-render PNG via Eraser.io
+    const pngBuf = await renderWithEraser(newSource, fm.diagramType ?? "flowchart", "light");
+    if (fm.asset) {
+      await writeFile(path.join(vaultPath, fm.asset), pngBuf);
+      lines.push(`Asset refreshed: ${fm.asset}`);
+    }
+    if (fm.scene && fm.fileId) {
+      const scene = await getScene(ensureExt(fm.scene));
+      if (scene.files[fm.fileId]) {
+        scene.files[fm.fileId] = { ...scene.files[fm.fileId], dataURL: `data:image/png;base64,${pngBuf.toString("base64")}`, lastRetrieved: Date.now() };
+        await putScene(ensureExt(fm.scene), scene);
+        lines.push(`Excalidraw: ${fm.scene} refreshed`);
+      }
+    }
+  } else {
+    // Mermaid or any Kroki format
+    const svg = await renderWithKroki(fm.format, newSource);
+    if (fm.format !== "mermaid" && fm.asset) {
+      await writeFile(path.join(vaultPath, fm.asset), svg, "utf-8");
+      lines.push(`Asset refreshed: ${fm.asset}`);
+    }
+    if (fm.scene && fm.fileId) {
+      const scene = await getScene(ensureExt(fm.scene));
+      if (scene.files[fm.fileId]) {
+        scene.files[fm.fileId] = { ...scene.files[fm.fileId], dataURL: svgToDataUrl(svg), lastRetrieved: Date.now() };
+        await putScene(ensureExt(fm.scene), scene);
+        lines.push(`Excalidraw: ${fm.scene} refreshed`);
+      }
+    }
+  }
+
   const updatedFm: DiagramFrontmatter = {
     title: fm.title ?? path.basename(relPath, ".md"),
     format: fm.format,
+    diagramType: fm.diagramType,
+    asset: fm.asset,
     scene: fm.scene,
     fileId: fm.fileId,
-    elementId: fm.elementId ?? "",
+    elementId: fm.elementId,
     tags: fm.tags,
     created: fm.created ?? now,
     updated: now,
     description: fm.description,
   };
-  await writeFile(mdPath, buildMarkdown(updatedFm, newSource), "utf-8");
-
+  await writeFile(mdPath, buildObsidianMarkdown(updatedFm, newSource), "utf-8");
   const gitResult = await gitCommitAndPush(vaultPath, `update diagram: ${relPath}`);
-
-  return ok(
-    `Updated diagram: ${relPath}\n` +
-    `Scene: ${sceneName} (fileId: ${fm.fileId})\n` +
-    `Git: ${gitResult}`
-  );
+  lines.push(`Git: ${gitResult}`);
+  return ok(lines.join("\n"));
 }
 
 async function handleRenderDiagram(args: Record<string, unknown>) {
@@ -899,6 +1111,172 @@ async function handleGitStatus() {
   }
 }
 
+async function handleInitProject(args: Record<string, unknown>) {
+  const vaultPath = requireVaultPath();
+  const name = args.name as string;
+  const description = (args.description as string | undefined) ?? `${name} documentation vault`;
+  const gitInit = (args.git_init as boolean | undefined) ?? true;
+  const defaultFolders = ["Architecture", "Flows", "Sequences", "Infrastructure", "Notes", "Assets"];
+  const folders = (args.folders as string[] | undefined) ?? defaultFolders;
+
+  const projectPath = path.join(vaultPath, name);
+  await mkdir(projectPath, { recursive: true });
+
+  for (const folder of folders) {
+    const folderPath = path.join(projectPath, folder);
+    await mkdir(folderPath, { recursive: true });
+    await writeFile(path.join(folderPath, ".gitkeep"), "", "utf-8");
+  }
+
+  const obsidianDir = path.join(projectPath, ".obsidian");
+  await mkdir(obsidianDir, { recursive: true });
+  await writeFile(
+    path.join(obsidianDir, "app.json"),
+    JSON.stringify(
+      { legacyEditor: false, livePreview: true, defaultViewMode: "source", attachmentFolderPath: "Assets", useMarkdownLinks: false },
+      null, 2
+    ),
+    "utf-8"
+  );
+
+  const now = new Date().toISOString().split("T")[0];
+  const readme = `---
+title: ${name}
+description: ${description}
+created: ${now}
+---
+
+# ${name}
+
+${description}
+
+## Vault Structure
+
+${folders.map((f) => `- \`${f}/\` — ${f}`).join("\n")}
+
+## How diagrams are generated
+
+Diagrams are created by the [excalidraw-mcp](https://github.com/gumpnart/excalidraw-mcp) MCP server via Kroki (diagram-as-code) or Eraser.io, then embedded here using Obsidian's \`![[path]]\` syntax.
+`;
+  await writeFile(path.join(projectPath, "README.md"), readme, "utf-8");
+  await writeFile(
+    path.join(projectPath, ".gitignore"),
+    ".obsidian/workspace.json\n.obsidian/workspace-mobile.json\n.trash/\n.DS_Store\n",
+    "utf-8"
+  );
+
+  let gitResult = "";
+  if (gitInit) {
+    try {
+      const git = simpleGit(projectPath);
+      await git.init();
+      await git.add(".");
+      await git.commit(`init: ${name} project vault`);
+      gitResult = "git repository initialised with initial commit";
+    } catch (e) {
+      gitResult = `git init skipped: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  return ok(
+    `Initialised project vault: ${name}\n` +
+    `Path: ${projectPath}\n` +
+    `Folders: ${folders.join(", ")}\n` +
+    (gitResult ? `Git: ${gitResult}` : "")
+  );
+}
+
+async function handleCreateDocument(args: Record<string, unknown>) {
+  const vaultPath = requireVaultPath();
+  const folder = args.folder as string;
+  const name = (args.name as string).replace(/\.md$/, "");
+  const title = args.title as string;
+  const body = (args.body as string | undefined) ?? "";
+  const tags = args.tags as string[] | undefined;
+  const sections = (args.sections as Array<{
+    heading: string;
+    body?: string;
+    diagram?: string;
+  }> | undefined) ?? [];
+
+  const now = new Date().toISOString().split("T")[0];
+  const tagsLine = tags?.length ? `\ntags: [${tags.join(", ")}]` : "";
+
+  let content = `---\ntitle: ${title}\ntype: document\ncreated: ${now}\nupdated: ${now}${tagsLine}\n---\n\n# ${title}\n`;
+  if (body) content += `\n${body}\n`;
+
+  for (const section of sections) {
+    content += `\n## ${section.heading}\n\n`;
+    if (section.body) content += `${section.body}\n\n`;
+    if (section.diagram) {
+      const embed = await getDiagramEmbed(vaultPath, section.diagram);
+      content += embed + "\n";
+    }
+  }
+
+  const folderPath = path.join(vaultPath, folder);
+  await mkdir(folderPath, { recursive: true });
+  await writeFile(path.join(folderPath, `${name}.md`), content, "utf-8");
+
+  const gitResult = await gitCommitAndPush(vaultPath, `add document: ${folder}/${name}`);
+  return ok(`Created document: ${folder}/${name}.md\nGit: ${gitResult}`);
+}
+
+async function handleCreateEraserDiagram(args: Record<string, unknown>) {
+  const vaultPath = requireVaultPath();
+  const folder = args.folder as string;
+  const name = (args.name as string).replace(/\.md$/, "");
+  const title = args.title as string;
+  const source = args.source as string;
+  const diagramType = args.diagram_type as string;
+  const sceneName = args.scene ? ensureExt(args.scene as string) : null;
+  const theme = (args.theme as string | undefined) ?? "light";
+  const x = (args.x as number | undefined) ?? 50;
+  const y = (args.y as number | undefined) ?? 50;
+  const description = args.description as string | undefined;
+  const tags = args.tags as string[] | undefined;
+  const now = new Date().toISOString().split("T")[0];
+
+  const pngBuf = await renderWithEraser(source, diagramType, theme);
+  const { width, height } = pngDimensions(pngBuf);
+
+  // Primary output: save PNG to {folder}/Assets/{name}.png for Obsidian embed
+  const assetPath = await saveAsset(vaultPath, folder, name, pngBuf, "png");
+
+  let fileId: string | undefined;
+  let elementId: string | undefined;
+
+  if (sceneName) {
+    fileId = makeFileId();
+    elementId = makeElementId();
+    const scene = await getScene(sceneName);
+    scene.files[fileId] = { mimeType: "image/png", id: fileId, dataURL: `data:image/png;base64,${pngBuf.toString("base64")}`, created: Date.now(), lastRetrieved: Date.now() };
+    scene.elements = [...scene.elements, makeImageElement(elementId, fileId, x, y, width, height)];
+    await putScene(sceneName, scene);
+  }
+
+  const fm: DiagramFrontmatter = {
+    title, format: "eraser", diagramType, tags, asset: assetPath,
+    scene: sceneName ?? undefined, fileId, elementId,
+    created: now, updated: now, description,
+  };
+  const mdContent = buildObsidianMarkdown(fm, source);
+  const folderPath = path.join(vaultPath, folder);
+  await mkdir(folderPath, { recursive: true });
+  await writeFile(path.join(folderPath, `${name}.md`), mdContent, "utf-8");
+
+  const gitResult = await gitCommitAndPush(vaultPath, `add eraser diagram: ${folder}/${name}`);
+  return ok([
+    `Created Eraser.io diagram "${title}" (${diagramType})`,
+    `Vault: ${folder}/${name}.md`,
+    `Asset: ${assetPath} — embed with ![[${assetPath}]]`,
+    sceneName
+      ? `Excalidraw: ${sceneName} (elementId: ${elementId}) — Size: ${width}×${height}`
+      : `Excalidraw: (none — Obsidian only)`,
+    `Git: ${gitResult}`,
+  ].join("\n"));
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────────────
 
 export async function handleTool(name: string, args: Record<string, unknown>) {
@@ -918,9 +1296,12 @@ export async function handleTool(name: string, args: Record<string, unknown>) {
     case "render_diagram":    return handleRenderDiagram(args);
     case "get_diagram":       return handleGetDiagram(args);
     case "list_diagrams":     return handleListDiagrams(args);
-    case "git_log":           return handleGitLog(args);
-    case "git_status":        return handleGitStatus();
-    default:                  return err(`Unknown tool: ${name}`);
+    case "git_log":              return handleGitLog(args);
+    case "git_status":           return handleGitStatus();
+    case "init_project":          return handleInitProject(args);
+    case "create_document":       return handleCreateDocument(args);
+    case "create_eraser_diagram": return handleCreateEraserDiagram(args);
+    default:                     return err(`Unknown tool: ${name}`);
   }
 }
 
@@ -928,7 +1309,7 @@ export async function handleTool(name: string, args: Record<string, unknown>) {
 
 export function createMcpServer(): Server {
   const server = new Server(
-    { name: "excalidraw-mcp", version: "1.2.0" },
+    { name: "excalidraw-mcp", version: "1.4.0" },
     { capabilities: { tools: {} } }
   );
 

@@ -143,10 +143,18 @@ export interface ElementSpec {
 // ─── Diagram vault frontmatter ────────────────────────────────────────────────
 export interface DiagramFrontmatter {
   title: string;
+  /** Renderer: mermaid | plantuml | graphviz | d2 | eraser | excalidraw | … */
   format: string;
-  scene: string;
-  fileId: string;
-  elementId: string;
+  /** Eraser.io diagram type (only when format === "eraser") */
+  diagramType?: string;
+  /** Vault-relative path to rendered asset e.g. "Architecture/Assets/name.svg" */
+  asset?: string;
+  /** Optional: Excalidraw scene this diagram was also pushed to */
+  scene?: string;
+  /** Optional: Excalidraw file ID (only set when scene is present) */
+  fileId?: string;
+  /** Optional: Excalidraw element ID (only set when scene is present) */
+  elementId?: string;
   tags?: string[];
   created: string;
   updated: string;

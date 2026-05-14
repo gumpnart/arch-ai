@@ -2,13 +2,31 @@
 
 > **Project rule:** Always update `README.md` and `CHANGES.md` whenever any change occurs in the project.
 
-MCP server that lets Claude Desktop draw on an Excalidraw canvas in real time, with diagram-as-code support via Kroki and an Obsidian-compatible vault for versionable diagram sources.
+> **Branch rule:** Always create a new git branch before adding any new feature. Never implement new features directly on `main`.
+
+> **MCP interaction rule:** Before calling any MCP tool that targets a specific scene or diagram, always confirm which project/scene to use — unless the user has already named it in their message.
+>
+> **How to apply:**
+> 1. Call `list_scenes` to retrieve the current scene list.
+> 2. Ask the user to pick one (or confirm if only one exists).
+> 3. Only then call the intended tool with the confirmed scene name.
+>
+> **Exceptions — no need to ask first:**
+> - The user's message already names the scene (e.g. "add to architecture.excalidraw", "update the flows diagram").
+> - The tool is read-only and not scene-specific: `list_scenes`, `list_diagrams`, `git_log`, `git_status`.
+> - The tool is vault-only with no scene target: `init_project`, `create_document`.
+>
+> **For diagram tools** (`create_diagram`, `create_eraser_diagram`, `update_diagram`):
+> also ask which vault folder to save under (`Architecture/`, `Flows/`, `Sequences/`, `Infrastructure/`) if not specified.
+> `scene` is optional — only ask for it if the user wants Excalidraw live preview in addition to Obsidian output.
+
+**Obsidian-centric** MCP server + Docker stack. The vault is the primary output; documents are Obsidian `.md` files; diagrams are embedded resources rendered by Kroki or Eraser.io. Excalidraw is an optional live-preview canvas, not the main deliverable. See `sample-project/` for the full workflow.
 
 ## Architecture
 
 ```
 excalidraw-mcp/
-├── docker-compose.yml        ← bridge + excalidraw-app + kroki + mermaid + mcp-tls containers
+├── docker-compose.yml        ← bridge + excalidraw-app + kroki + mermaid + mcp-tls + vault-editor containers
 ├── scenes/                   ← .excalidraw files (shared Docker volume)
 ├── certs/                    ← generated at runtime by mcp-tls (gitignored)
 ├── diagrams-vault/           ← Obsidian vault (separate git repo, mounted into bridge)
@@ -21,6 +39,7 @@ excalidraw-mcp/
 ├── bridge/                   ← Fastify + chokidar + SSE (port 3001, Docker only)
 ├── excalidraw-app/           ← React/Vite app → nginx (port 3000)
 ├── nginx-tls/                ← nginx TLS proxy: HTTPS 3443 → HTTP mcp-http:3002
+├── vault-editor/             ← nginx SPA: markdown editor for vault .md files (port 4000)
 └── mcp-server/               ← TypeScript MCP server (stdio + HTTP transports)
 ```
 
@@ -33,13 +52,21 @@ excalidraw-mcp/
 ## Services
 
 ### bridge (`bridge/src/index.ts`)
-- Express server on port 3001
+- Fastify server on port 3001
 - `SCENES_DIR` env var (default `./scenes`) — mount point for the shared volume
 - Routes: `GET /health`, `GET /events` (SSE), `GET /scenes`, `GET /scenes/:name`, `PUT /scenes/:name`, `DELETE /scenes/:name`, `POST /scenes/:name/rename`
 - Additional routes for diagrams: `GET /diagrams`, `GET /diagrams/:path`, `PUT /diagrams/:path`, `DELETE /diagrams/:path`
-- chokidar also watches vault `.md` files — triggers Kroki re-render + SSE push on change
+- Git routes: `GET /git/status` (porcelain status of VAULT_DIR), `POST /git/commit` (add + commit + push)
+- chokidar also watches vault `.md` files — broadcasts SSE events on change
 - `sanitizeName()` strips path traversal and enforces `.excalidraw` extension
 - SSE heartbeat every 25s to keep connections alive through nginx
+
+### vault-editor (`vault-editor/`)
+- nginx:alpine serving a static SPA at port 4000
+- Proxies `/api/` → `bridge:3001/` (SSE route handled separately for correct streaming)
+- SPA features: folder tree sidebar, Edit/Split/Preview mode, Ctrl+S save, + New, Delete, ⎇ Commit modal
+- No build step — plain HTML/CSS/JS with `marked.js` from CDN for markdown preview
+- Vault storage: git only — no database
 
 ### kroki + mermaid (Docker services)
 - Kroki on port 8000 (`yuzutech/kroki`) — renders Mermaid, PlantUML, Graphviz/DOT, D2, C4, Structurizr, BPMN, Erd, Nomnoml, and ~20 more formats to SVG
@@ -85,13 +112,21 @@ excalidraw-mcp/
 
 | Tool | Description |
 |---|---|
-| `create_diagram` | Write `.md` to vault → Kroki renders → SVG image element in Excalidraw → git push |
-| `update_diagram` | Edit diagram source → re-render in-place → git push |
-| `render_diagram` | Re-render an existing diagram (e.g. after clearing a scene) |
-| `get_diagram` | Read source code + description from vault |
+| `create_diagram` | Write diagram source to vault; mermaid → inline code block (Obsidian-native); other formats → SVG via Kroki saved to `Assets/`; optionally also push to Excalidraw scene |
+| `update_diagram` | Edit source → re-render asset (SVG/PNG) + update `.md`; also refresh Excalidraw if scene was set |
+| `render_diagram` | Re-render an existing vault diagram into an Excalidraw scene (optional live view) |
+| `get_diagram` | Read source code + metadata from vault |
 | `list_diagrams` | Browse vault by folder |
 | `git_log` | View diagram history |
 | `git_status` | Check remote / branch config |
+
+### Project / Obsidian tools
+
+| Tool | Description |
+|---|---|
+| `init_project` | Scaffold a new Obsidian vault at `VAULT_PATH/<name>/` — folders, README, `.obsidian/app.json`, `.gitignore`, initial git commit |
+| `create_document` | **Primary document tool** — creates a structured `.md` with sections; each section can embed a diagram (reads diagram `.md` and auto-inserts correct Obsidian embed) |
+| `create_eraser_diagram` | Render diagram via Eraser.io API → PNG saved to `Assets/`; `.md` with `![[…]]` embed; optionally also push to Excalidraw scene. Requires `ERASER_API_KEY` |
 
 ### Vault markdown format
 
