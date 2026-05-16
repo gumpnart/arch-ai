@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ── Bridge: vault file API + SSE live-reload ─────────────────────────────
   bridge:
     build:
       context: ./bridge
@@ -10,28 +11,14 @@ services:
     ports:
       - "3001:3001"
     volumes:
-      - ./scenes:/scenes
       - ./diagrams-vault:/diagrams-vault
     environment:
-      - SCENES_DIR=/scenes
       - VAULT_DIR=/diagrams-vault
       - PORT=3001
     networks:
       - excalidraw-net
 
-  excalidraw-app:
-    build:
-      context: ./excalidraw-app
-      dockerfile: Dockerfile
-    container_name: excalidraw-app
-    restart: unless-stopped
-    ports:
-      - "3000:80"
-    depends_on:
-      - bridge
-    networks:
-      - excalidraw-net
-
+  # ── Kroki: diagram-as-code renderer ──────────────────────────────────────
   kroki:
     image: yuzutech/kroki
     container_name: excalidraw-kroki
@@ -52,71 +39,51 @@ services:
     networks:
       - excalidraw-net
 
+  # ── MCP server: diagram-as-code tools (render + vault + git) ─────────────
+  # HTTP mode (default): serves /mcp endpoint on PORT
+  # Stdio mode (Claude Desktop): docker exec -i excalidraw-mcp node /app/dist/index.js --stdio
   mcp-server:
     build:
       context: ./mcp-server
       dockerfile: Dockerfile
-    image: localdraw-mcp-server
-    container_name: excalidraw-mcp
-    restart: unless-stopped
-    volumes:
-      - ./diagrams-vault:/vault
-    environment:
-      - BRIDGE_URL=http://bridge:3001
-      - KROKI_URL=http://kroki:8000
-      - VAULT_PATH=/vault
-      - ERASER_API_KEY=${ERASER_API_KEY:-}
-    depends_on:
-      - bridge
-      - kroki
-    networks:
-      - excalidraw-net
-    entrypoint: [ "tail", "-f", "/dev/null" ]
-
-  mcp-http:
-    build:
-      context: ./mcp-server
-      dockerfile: Dockerfile
-    image: localdraw-mcp-server
-    container_name: excalidraw-mcp-http
+    image: diagrams-mcp-server
+    container_name: diagrams-mcp
     restart: unless-stopped
     ports:
       - "3002:3002"
     volumes:
       - ./diagrams-vault:/vault
     environment:
-      - BRIDGE_URL=http://bridge:3001
       - KROKI_URL=http://kroki:8000
       - VAULT_PATH=/vault
-      - ERASER_API_KEY=${ERASER_API_KEY:-}
       - PORT=3002
     depends_on:
-      - mcp-server
-      - bridge
       - kroki
     networks:
       - excalidraw-net
 
+  # ── TLS proxy: HTTPS for Claude Desktop / Claude Code connectors ──────────
   mcp-tls:
     build:
       context: ./nginx-tls
       dockerfile: Dockerfile
-    container_name: excalidraw-mcp-tls
+    container_name: diagrams-mcp-tls
     restart: unless-stopped
     ports:
       - "3443:3443"
     volumes:
       - ./certs:/certs
     depends_on:
-      - mcp-http
+      - mcp-server
     networks:
       - excalidraw-net
 
+  # ── Vault Editor: BlockNote-based markdown + diagram editor ───────────────
   vault-editor:
     build:
       context: ./vault-editor
       dockerfile: Dockerfile
-    container_name: excalidraw-vault-editor
+    container_name: diagrams-vault-editor
     restart: unless-stopped
     ports:
       - "4000:4000"
@@ -128,6 +95,3 @@ services:
 networks:
   excalidraw-net:
     driver: bridge
-
-volumes:
-  scenes:

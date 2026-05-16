@@ -1,26 +1,32 @@
 FROM node:20-alpine AS builder
-RUN npm install -g pnpm
+
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
-RUN pnpm install --frozen-lockfile
+
+# Install pnpm
+RUN npm install -g pnpm
+
+COPY package.json ./
+RUN pnpm install --frozen-lockfile --ignore-scripts 2>/dev/null || pnpm install --ignore-scripts
+
 COPY tsconfig.json ./
-COPY src/ ./src/
+COPY src ./src
+
 RUN pnpm run build
 
+# ── Runtime image ─────────────────────────────────────────────────────────────
 FROM node:20-alpine
-RUN apk add --no-cache git && \
-    git config --global user.email "excalidraw-mcp@local" && \
-    git config --global user.name "Excalidraw MCP"
-RUN npm install -g pnpm
+
 WORKDIR /app
-COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
-RUN pnpm install --prod --frozen-lockfile
+
+RUN npm install -g pnpm
+
+COPY package.json ./
+RUN pnpm install --prod --ignore-scripts 2>/dev/null || pnpm install --prod
+
 COPY --from=builder /app/dist ./dist
 
-ENV BRIDGE_URL=http://bridge:3001
-ENV KROKI_URL=http://kroki:8000
-ENV VAULT_PATH=/vault
-ENV PORT=3002
-
 EXPOSE 3002
-CMD ["node", "dist/http-server.js"]
+
+# Default: HTTP mode on PORT.
+# For stdio (Claude Desktop docker exec): override CMD with --stdio
+CMD ["node", "dist/index.js"]

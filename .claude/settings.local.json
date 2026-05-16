@@ -9,7 +9,10 @@
       "Bash(ls -la D:/developments/ | grep -iE \"vault|setup\")",
       "Bash(Test-Path \"d:\\\\developments\\\\excalidraw-mcp\\\\CHANGES.md\")",
       "PowerShell(Get-Command pnpm)",
-      "PowerShell(pnpm --version)"
+      "PowerShell(pnpm --version)",
+      "Bash(del pnpm-lock.yaml)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm build *)"
     ]
   }
 }

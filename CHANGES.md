@@ -1,5 +1,76 @@
 # Change Log
 
+## 2026-05-14 — feat: remove Excalidraw entirely; replace with diagram-as-code MCP + Kroki
+
+### Overview
+
+Complete pivot: removed all Excalidraw tooling and replaced with a clean **diagram-as-code** stack. The MCP server now manages diagrams as Markdown files rendered by Kroki. The vault editor (BlockNote) renders diagram code blocks inline.
+
+### Removed
+
+| What | Why |
+|---|---|
+| `excalidraw-app/` (port 3000) | No longer needed — Excalidraw canvas removed entirely |
+| `mcp-server/src/` (gumpnart/excalidraw-mcp) | Replaced with diagram-as-code MCP |
+| `mcp-http` docker-compose service | Merged into single `mcp-server` service |
+| `scenes/` Docker volume | No scenes without Excalidraw |
+| `bridge` scenes mount (`./scenes:/scenes`) | Not needed |
+
+### New: diagram-as-code MCP server (`mcp-server/`)
+
+| File | Description |
+|---|---|
+| `src/index.ts` | Entry point: `--stdio` for docker exec, HTTP for connectors |
+| `src/server.ts` | `McpServer` factory + 11 tool registrations |
+| `src/kroki.ts` | `renderDiagram(format, source)` → SVG via Kroki POST; `SUPPORTED_FORMATS` list |
+| `src/vault.ts` | Vault file ops, frontmatter parse/build, `updateDiagramSource`, `initProject`, `gitCommitAndPush`, `gitStatus` |
+| `package.json` | `@modelcontextprotocol/sdk`, `express`, `simple-git`, `zod` |
+| `Dockerfile` | Two-stage: `node:20-alpine` builder (tsc) → `node:20-alpine` runtime |
+
+**Tools registered:** `render_diagram`, `list_formats`, `create_diagram`, `update_diagram`, `get_diagram`, `list_diagrams`, `delete_diagram`, `create_document`, `init_project`, `git_status`, `git_commit`
+
+### Updated: `docker-compose.yml`
+
+- Removed: `excalidraw-app`, `mcp-http`, `scenes` volume
+- `mcp-server` now: port 3002, `KROKI_URL` + `VAULT_PATH` env vars, no bridge dependency
+- `bridge`: removed scenes mount (only vault mount remains)
+
+### Updated: `README.md`
+
+Complete rewrite to reflect diagram-as-code architecture, new tool list, and updated quick-start steps.
+
+## 2026-05-14 — feat: replace mcp-server with gumpnart/excalidraw-mcp; migrate vault-editor to BlockNote with live diagram blocks
+
+### mcp-server — full replacement
+
+Replaced the custom scene/vault/Kroki MCP server with the upstream **gumpnart/excalidraw-mcp** ("Streamable Excalidraw MCP App server").
+
+| What changed | Details |
+|---|---|
+| `mcp-server/src/` | Replaced with upstream source: `server.ts`, `main.ts`, `checkpoint-store.ts`, `mcp-app.tsx`, `mcp-entry.tsx`, `edit-context.ts`, `sounds.ts`, `pencil-audio.ts`, `global.css` |
+| `mcp-server/api/` | Added Vercel `api/mcp.ts` handler |
+| `mcp-server/scripts/` | `build.mjs` (bun-based build), `setup-bun.mjs` |
+| `mcp-server/Dockerfile` | New two-stage build: `oven/bun:1` builder → `node:20-alpine` runner |
+| `mcp-server/package.json` | Updated to upstream package (`@mcp-demos/excalidraw-server` v0.3.2) |
+| `docker-compose.yml` | Merged old `mcp-server` (stdio) + `mcp-http` (HTTP) into single new `mcp-server` service on port 3002; dropped `BRIDGE_URL`, `KROKI_URL`, `VAULT_PATH` env vars; `mcp-tls` points to new service |
+
+**Tools provided by the new server:** `read_me`, `create_view` (streaming Excalidraw with camera control + checkpoint restore), `export_to_excalidraw`.
+
+**What was removed:** vault/Obsidian tools, Kroki integration, git operations, scene management via bridge. These were handled by the old mcp-server which is now replaced.
+
+### vault-editor — BlockNote migration + live diagram blocks
+
+Replaced TipTap with **BlockNote** and added a custom `DiagramBlock` that renders diagrams inline.
+
+| File | Change |
+|---|---|
+| `vault-editor/package.json` | Removed TipTap/lowlight; added `@blocknote/core`, `@blocknote/react`, `@blocknote/mantine`, `@mantine/core`, `@mantine/hooks` |
+| `vault-editor/src/components/Editor.tsx` | Rewritten: `useCreateBlockNote` with custom schema; markdown↔blocks round-trip preserves diagram code fences as `DiagramBlock` instances |
+| `vault-editor/src/components/DiagramBlock.tsx` | New `createReactBlockSpec` custom block: format selector (mermaid/plantuml/graphviz/d2/c4plantuml/erd/nomnoml) + code editor (left) + Kroki SVG preview (right); auto-renders on mount and debounces re-render on edit |
+| `vault-editor/src/styles/global.css` | Added BlockNote override styles (dark theme) + `.diagram-block` split-pane layout |
+
+**Key behaviour:** existing markdown files with code blocks like ` ```mermaid ` automatically load as editable diagram blocks with live preview. Saving serializes them back to code fences.
+
 ## 2026-05-14 — feat: rebuild vault-editor as Astro + React + TipTap WYSIWYG editor
 
 ### Overview

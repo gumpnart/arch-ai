@@ -1,37 +1,91 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react';
-import { useEditor, EditorContent, BubbleMenu, FloatingMenu } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
-import Image from '@tiptap/extension-image';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
-import Typography from '@tiptap/extension-typography';
-import { Markdown } from 'tiptap-markdown';
-import { createLowlight } from 'lowlight';
-import javascript from 'highlight.js/lib/languages/javascript';
-import typescript from 'highlight.js/lib/languages/typescript';
-import python from 'highlight.js/lib/languages/python';
-import yaml from 'highlight.js/lib/languages/yaml';
-import bash from 'highlight.js/lib/languages/bash';
-import json from 'highlight.js/lib/languages/json';
-import css from 'highlight.js/lib/languages/css';
-import sql from 'highlight.js/lib/languages/sql';
-import xml from 'highlight.js/lib/languages/xml';
+import { BlockNoteSchema, defaultBlockSpecs, type Block } from '@blocknote/core';
+import { BlockNoteView } from '@blocknote/mantine';
+import { useCreateBlockNote } from '@blocknote/react';
+import '@blocknote/mantine/style.css';
+import { DiagramBlock, DIAGRAM_FORMATS, type DiagramFormat } from './DiagramBlock';
 
-const lowlight = createLowlight();
-lowlight.register({ javascript, typescript, python, yaml, bash, json, css, sql, xml });
+// ── Schema with custom diagram block ────────────────────────────────────────
+
+const schema = BlockNoteSchema.create({
+  blockSpecs: {
+    ...defaultBlockSpecs,
+    diagram: DiagramBlock,
+  },
+});
+
+type EditorSchema = typeof schema;
+type EditorBlock = Block<EditorSchema['blockSpecs']>;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function extractFrontmatter(raw: string): { frontmatter: string; body: string } {
+  const match = raw.match(/^---\n[\s\S]*?\n---\n?/);
+  if (!match) return { frontmatter: '', body: raw };
+  return { frontmatter: match[0], body: raw.slice(match[0].length) };
+}
+
+const DIAGRAM_FORMAT_SET = new Set<string>(DIAGRAM_FORMATS);
+
+/** After markdown parse, convert code blocks whose language is a diagram format into diagram blocks. */
+function convertDiagramCodeBlocks(blocks: EditorBlock[]): EditorBlock[] {
+  return blocks.map((block) => {
+    if (block.type === 'codeBlock') {
+      const lang = (block.props as { language?: string }).language ?? '';
+      if (DIAGRAM_FORMAT_SET.has(lang)) {
+        const source = (block.content as Array<{ type: string; text: string }>)
+          .map((c) => c.text ?? '')
+          .join('');
+        return {
+          id: block.id,
+          type: 'diagram',
+          props: { format: lang as DiagramFormat, source },
+          content: [],
+          children: [],
+        } as unknown as EditorBlock;
+      }
+    }
+    return block;
+  });
+}
+
+/** Serialize blocks back to markdown, handling diagram blocks as code fences. */
+async function serializeToMarkdown(
+  editor: ReturnType<typeof useCreateBlockNote<EditorSchema['blockSpecs']>>,
+  blocks: EditorBlock[]
+): Promise<string> {
+  const parts: string[] = [];
+  let pending: EditorBlock[] = [];
+
+  const flushPending = async () => {
+    if (!pending.length) return;
+    const md = await editor.blocksToMarkdownLossy(pending);
+    if (md.trim()) parts.push(md.trim());
+    pending = [];
+  };
+
+  for (const block of blocks) {
+    if (block.type === 'diagram') {
+      await flushPending();
+      const { format, source } = block.props as { format: string; source: string };
+      parts.push('```' + format + '\n' + source + '\n```');
+    } else {
+      pending.push(block);
+    }
+  }
+  await flushPending();
+
+  return parts.join('\n\n') + '\n';
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export interface EditorHandle {
   insertContent: (content: string) => void;
@@ -45,101 +99,80 @@ interface Props {
   onInsertDiagram: () => void;
 }
 
-function extractFrontmatter(raw: string): { frontmatter: string; body: string } {
-  const match = raw.match(/^---\n[\s\S]*?\n---\n?/);
-  if (!match) return { frontmatter: '', body: raw };
-  return { frontmatter: match[0], body: raw.slice(match[0].length) };
-}
-
 const Editor = forwardRef<EditorHandle, Props>(
   ({ initialContent, filePath, onChange, onSave, onInsertDiagram }, ref) => {
-    const { frontmatter, body } = extractFrontmatter(initialContent);
     const [showFrontmatter, setShowFrontmatter] = useState(false);
-    const [savedFrontmatter] = useState(frontmatter);
+    const savedFrontmatter = useRef('');
+    const onChangeRef = useRef(onChange);
+    const onSaveRef = useRef(onSave);
+    const isLoadingRef = useRef(false);
 
-    const editor = useEditor({
-      extensions: [
-        StarterKit.configure({ codeBlock: false }),
-        CodeBlockLowlight.configure({ lowlight }),
-        Image.configure({ inline: false }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
-        }),
-        Placeholder.configure({
-          placeholder: ({ node }) =>
-            node.type.name === 'heading'
-              ? 'Heading…'
-              : "Start writing, or press '/' for commands…",
-          includeChildren: true,
-        }),
-        TaskList,
-        TaskItem.configure({ nested: true }),
-        Table.configure({ resizable: false }),
-        TableRow,
-        TableCell,
-        TableHeader,
-        Typography,
-        Markdown.configure({
-          html: false,
-          tightLists: true,
-          bulletListMarker: '-',
-          transformPastedText: true,
-          transformCopiedText: false,
-        }),
-      ],
-      content: body,
-      onUpdate: onChange,
-      editorProps: {
-        attributes: { class: 'prose-editor', spellcheck: 'true' },
+    useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
+    useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
+
+    const editor = useCreateBlockNote({ schema });
+
+    // Load content whenever file changes (App passes key={activeFile} so this
+    // component re-mounts per file, but initialContent may arrive async)
+    useEffect(() => {
+      if (!editor) return;
+      const { frontmatter, body } = extractFrontmatter(initialContent);
+      savedFrontmatter.current = frontmatter;
+
+      let cancelled = false;
+      isLoadingRef.current = true;
+
+      (async () => {
+        const blocks = await editor.tryParseMarkdownToBlocks(body || '');
+        const processed = convertDiagramCodeBlocks(blocks);
+        if (!cancelled) {
+          editor.replaceBlocks(editor.document, processed);
+        }
+        isLoadingRef.current = false;
+      })().catch(console.error);
+
+      return () => { cancelled = true; };
+    }, [initialContent, editor]);
+
+    // Wire onChange (suppress during load to avoid spurious dirty flag)
+    useEffect(() => {
+      if (!editor) return;
+      return editor.onChange(() => {
+        if (!isLoadingRef.current) onChangeRef.current();
+      });
+    }, [editor]);
+
+    const handleSave = useCallback(async () => {
+      const md = await serializeToMarkdown(editor, editor.document as EditorBlock[]);
+      onSaveRef.current(savedFrontmatter.current + md);
+    }, [editor]);
+
+    // Expose insertContent for DiagramModal compatibility (inserts text paragraph)
+    useImperativeHandle(ref, () => ({
+      insertContent: (content: string) => {
+        editor.insertBlocks(
+          [{ type: 'paragraph', content: [{ type: 'text', text: content, styles: {} }] }],
+          editor.getTextCursorPosition().block,
+          'after'
+        );
       },
-    });
+    }), [editor]);
 
-    // Expose insertContent via forwardRef
-    useImperativeHandle(
-      ref,
-      () => ({
-        insertContent: (content: string) => {
-          editor?.chain().focus().insertContent(content).run();
-        },
-      }),
-      [editor]
-    );
-
-    // Ctrl+S / Cmd+S save
+    // Ctrl+S / Cmd+S
     useEffect(() => {
       const onKeyDown = (e: KeyboardEvent) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
           e.preventDefault();
-          if (!editor) return;
-          const md = editor.storage.markdown?.getMarkdown() ?? editor.getHTML();
-          onSave(savedFrontmatter + md);
+          handleSave();
         }
       };
       window.addEventListener('keydown', onKeyDown);
       return () => window.removeEventListener('keydown', onKeyDown);
-    }, [editor, onSave, savedFrontmatter]);
-
-    const handleSave = () => {
-      if (!editor) return;
-      const md = editor.storage.markdown?.getMarkdown() ?? editor.getHTML();
-      onSave(savedFrontmatter + md);
-    };
-
-    const setLink = () => {
-      if (!editor) return;
-      const prev = editor.getAttributes('link').href as string | undefined;
-      const url = window.prompt('URL:', prev ?? '');
-      if (url === null) return;
-      if (url) editor.chain().focus().setLink({ href: url }).run();
-      else editor.chain().focus().unsetLink().run();
-    };
-
-    if (!editor) return null;
+    }, [handleSave]);
 
     return (
       <div className="editor-container">
-        {/* ── Toolbar ── */}
+        {/* Toolbar */}
         <div className="editor-toolbar">
           <span className="toolbar-filepath" title={filePath}>{filePath}</span>
           <div className="toolbar-actions">
@@ -157,119 +190,32 @@ const Editor = forwardRef<EditorHandle, Props>(
             >
               ◈ Diagram
             </button>
-            <button className="toolbar-btn toolbar-btn-save" onClick={handleSave} title="Save (Ctrl+S)">
+            <button
+              className="toolbar-btn toolbar-btn-save"
+              onClick={handleSave}
+              title="Save (Ctrl+S)"
+            >
               Save
             </button>
           </div>
         </div>
 
-        {/* ── Frontmatter panel ── */}
-        {showFrontmatter && savedFrontmatter && (
+        {/* Frontmatter panel */}
+        {showFrontmatter && savedFrontmatter.current && (
           <div className="frontmatter-panel">
             <span className="frontmatter-label">Frontmatter</span>
-            <pre className="frontmatter-pre">{savedFrontmatter}</pre>
+            <pre className="frontmatter-pre">{savedFrontmatter.current}</pre>
           </div>
         )}
 
-        {/* ── Bubble Menu: appears on text selection ── */}
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100, placement: 'top' }}>
-          <div className="bubble-menu">
-            <button
-              className={`bubble-btn ${editor.isActive('bold') ? 'is-active' : ''}`}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-            >
-              <strong>B</strong>
-            </button>
-            <button
-              className={`bubble-btn ${editor.isActive('italic') ? 'is-active' : ''}`}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-            >
-              <em>I</em>
-            </button>
-            <button
-              className={`bubble-btn ${editor.isActive('strike') ? 'is-active' : ''}`}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-            >
-              <s>S</s>
-            </button>
-            <button
-              className={`bubble-btn ${editor.isActive('code') ? 'is-active' : ''}`}
-              onClick={() => editor.chain().focus().toggleCode().run()}
-            >
-              {'<>'}
-            </button>
-            <div className="bubble-divider" />
-            <button
-              className={`bubble-btn ${editor.isActive('link') ? 'is-active' : ''}`}
-              onClick={setLink}
-              title="Link"
-            >
-              🔗
-            </button>
-            <button
-              className="bubble-btn bubble-btn-h1"
-              onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            >
-              H1
-            </button>
-            <button
-              className="bubble-btn bubble-btn-h2"
-              onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            >
-              H2
-            </button>
-          </div>
-        </BubbleMenu>
-
-        {/* ── Floating Menu: appears on empty lines ── */}
-        <FloatingMenu
-          editor={editor}
-          tippyOptions={{ duration: 100, placement: 'left-start', offset: [-8, 8] }}
-        >
-          <div className="floating-menu">
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
-              H1
-            </button>
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-              H2
-            </button>
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
-              H3
-            </button>
-            <div className="float-divider" />
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleBulletList().run()}>
-              • List
-            </button>
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleOrderedList().run()}>
-              1. List
-            </button>
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleTaskList().run()}>
-              ☑ Tasks
-            </button>
-            <div className="float-divider" />
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
-              {'<>'} Code
-            </button>
-            <button className="float-btn" onClick={() => editor.chain().focus().toggleBlockquote().run()}>
-              ❝ Quote
-            </button>
-            <button
-              className="float-btn"
-              onClick={() =>
-                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-              }
-            >
-              ⊞ Table
-            </button>
-            <div className="float-divider" />
-            <button className="float-btn float-btn-accent" onClick={onInsertDiagram}>
-              ◈ Diagram
-            </button>
-          </div>
-        </FloatingMenu>
-
-        {/* ── Editor content ── */}
-        <EditorContent editor={editor} className="editor-content-wrap" />
+        {/* BlockNote editor */}
+        <div className="editor-content-wrap">
+          <BlockNoteView
+            editor={editor}
+            theme="dark"
+            className="blocknote-editor"
+          />
+        </div>
       </div>
     );
   }
