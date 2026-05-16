@@ -6,7 +6,7 @@ services:
     build:
       context: ./bridge
       dockerfile: Dockerfile
-    container_name: excalidraw-bridge
+    container_name: arch-doc-bridge
     restart: unless-stopped
     ports:
       - "3001:3001"
@@ -16,38 +16,38 @@ services:
       - VAULT_DIR=/diagrams-vault
       - PORT=3001
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
-  # ── Kroki: diagram-as-code renderer ──────────────────────────────────────
+  # ── Kroki: diagram-as-code renderer (shared by arch-doc-mcp + mcp-server) ─
   kroki:
     image: yuzutech/kroki
-    container_name: excalidraw-kroki
+    container_name: arch-doc-kroki
     restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
       - KROKI_MERMAID_HOST=mermaid
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
   mermaid:
     image: yuzutech/kroki-mermaid
-    container_name: excalidraw-mermaid
+    container_name: arch-doc-mermaid
     restart: unless-stopped
     expose:
       - "8002"
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
   # ── MCP server: diagram-as-code tools (render + vault + git) ─────────────
   # HTTP mode (default): serves /mcp endpoint on PORT
-  # Stdio mode (Claude Desktop): docker exec -i excalidraw-mcp node /app/dist/index.js --stdio
+  # Stdio mode (Claude Desktop): docker exec -i arch-doc-mcp node /app/dist/index.js --stdio
   mcp-server:
     build:
       context: ./mcp-server
       dockerfile: Dockerfile
-    image: diagrams-mcp-server
-    container_name: diagrams-mcp
+    image: arch-doc-mcp-server
+    container_name: arch-doc-mcp
     restart: unless-stopped
     ports:
       - "3002:3002"
@@ -60,14 +60,14 @@ services:
     depends_on:
       - kroki
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
   # ── TLS proxy: HTTPS for Claude Desktop / Claude Code connectors ──────────
   mcp-tls:
     build:
       context: ./nginx-tls
       dockerfile: Dockerfile
-    container_name: diagrams-mcp-tls
+    container_name: arch-doc-mcp-tls
     restart: unless-stopped
     ports:
       - "3443:3443"
@@ -76,22 +76,22 @@ services:
     depends_on:
       - mcp-server
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
   # ── Vault Editor: BlockNote-based markdown + diagram editor ───────────────
   vault-editor:
     build:
       context: ./vault-editor
       dockerfile: Dockerfile
-    container_name: diagrams-vault-editor
+    container_name: arch-doc-vault-editor
     restart: unless-stopped
     ports:
       - "4000:4000"
     depends_on:
       - bridge
     networks:
-      - excalidraw-net
+      - arch-doc-net
 
 networks:
-  excalidraw-net:
+  arch-doc-net:
     driver: bridge

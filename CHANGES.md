@@ -1,5 +1,21 @@
 # Change Log
 
+## 2026-05-16 — chore: consolidate Kroki; rename excalidraw-mcp stack to arch-doc
+
+- Deleted standalone `kroki/docker-compose.yml` — root compose already provides Kroki on port 8000
+- Renamed all Docker containers/network from `excalidraw-*`/`diagrams-*` to `arch-doc-*`
+  - `excalidraw-bridge` → `arch-doc-bridge`
+  - `excalidraw-kroki` → `arch-doc-kroki`
+  - `excalidraw-mermaid` → `arch-doc-mermaid`
+  - `diagrams-mcp` → `arch-doc-mcp`
+  - `diagrams-mcp-tls` → `arch-doc-mcp-tls`
+  - `diagrams-vault-editor` → `arch-doc-vault-editor`
+  - network `excalidraw-net` → `arch-doc-net`
+- Updated CLAUDE.md: project title, container name in Docker config, host paths
+- **Action required**: update `claude_desktop_config.json` container name to `arch-doc-mcp`
+
+---
+
 ## 2026-05-16 — feat: add arch-doc-system (arch-doc-mcp + vault + site + web editor)
 
 ### Overview

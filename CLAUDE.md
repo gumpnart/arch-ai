@@ -1,4 +1,4 @@
-# excalidraw-mcp
+# software-arch-ai
 
 > **Project rule:** Always update `README.md` and `CHANGES.md` whenever any change occurs in the project.
 
@@ -25,8 +25,8 @@
 ## Architecture
 
 ```
-excalidraw-mcp/
-├── docker-compose.yml        ← bridge + excalidraw-app + kroki + mermaid + mcp-tls + vault-editor containers
+software-arch-ai/
+├── docker-compose.yml        ← bridge + kroki + mermaid + mcp-server + mcp-tls + vault-editor containers
 ├── scenes/                   ← .excalidraw files (shared Docker volume)
 ├── certs/                    ← generated at runtime by mcp-tls (gitignored)
 ├── diagrams-vault/           ← Obsidian vault (separate git repo, mounted into bridge)
@@ -190,7 +190,7 @@ bash setup-vault.sh
   "mcpServers": {
     "excalidraw": {
       "command": "docker",
-      "args": ["exec", "-i", "excalidraw-mcp", "node", "/app/dist/index.js"]
+      "args": ["exec", "-i", "arch-doc-mcp", "node", "/app/dist/index.js"]
     }
   }
 }
@@ -203,11 +203,11 @@ bash setup-vault.sh
   "mcpServers": {
     "excalidraw": {
       "command": "node",
-      "args": ["D:/developments/excalidraw-mcp/mcp-server/dist/index.js"],
+      "args": ["D:/developments/software-arch-ai/mcp-server/dist/index.js"],
       "env": {
         "BRIDGE_URL": "http://localhost:3001",
         "KROKI_URL": "http://localhost:8000",
-        "VAULT_PATH": "D:/developments/excalidraw-mcp/diagrams-vault"
+        "VAULT_PATH": "D:/developments/software-arch-ai/diagrams-vault"
       }
     }
   }
@@ -247,5 +247,5 @@ After editing config, restart Claude Desktop for tools to appear.
 - `add_diagram` (the shape-based power tool) calls `buildElements` twice (once for nodes, once with arrows appended) — the second call re-generates all node elements too. The `idMap` from the second call is not used; arrow binding uses `nodeElementIds` from the first call. This is a known quirk.
 - The excalidraw-app only auto-reloads when the **currently selected** scene changes (`data.file === currentRef.current`). Other scene changes only refresh the scene list.
 - Kroki diagram SVGs are stored as base64 `image` elements in the Excalidraw `files{}` map, not as external URLs — they are fully embedded in the `.excalidraw` file.
-- The vault is a **separate git repo** (not a subfolder of excalidraw-mcp). `diagrams-vault/` is mounted into the bridge container as a volume. Git operations (auto-push on save) run from the MCP server on the host via `simple-git`.
+- The vault is a **separate git repo** (not a subfolder of software-arch-ai). `diagrams-vault/` is mounted into the bridge container as a volume. Git operations (auto-push on save) run from the MCP server on the host via `simple-git`.
 - Git auto-push fires on every `create_diagram` / `update_diagram` call. Use `git_status` to verify the remote is configured before relying on push.
