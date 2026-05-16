@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "arch-doc-mcp": {
+      "command": "node",
+      "args": ["./arch-doc-mcp/dist/index.js"],
+      "env": { "KROKI_URL": "http://localhost:8000" }
+    },
+    "kroki-mcp": {
+      "command": "go",
+      "args": [
+        "run", "github.com/utain/kroki-mcp/cmd/kroki-mcp@latest",
+        "-m", "stdio", "-f", "svg",
+        "--kroki-host", "http://localhost:8000"
+      ]
+    }
+  }
+}

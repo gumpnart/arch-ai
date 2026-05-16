@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  kroki:
+    image: yuzutech/kroki:latest
+    container_name: kroki
+    restart: unless-stopped
+    environment:
+      - KROKI_MERMAID_HOST=mermaid
+      - KROKI_BPMN_HOST=bpmn
+      - KROKI_EXCALIDRAW_HOST=excalidraw
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mermaid
+      - bpmn
+      - excalidraw
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  mermaid:
+    image: yuzutech/kroki-mermaid:latest
+    container_name: kroki-mermaid
+    restart: unless-stopped
+    expose:
+      - "8002"
+
+  bpmn:
+    image: yuzutech/kroki-bpmn:latest
+    container_name: kroki-bpmn
+    restart: unless-stopped
+    expose:
+      - "8003"
+
+  excalidraw:
+    image: yuzutech/kroki-excalidraw:latest
+    container_name: kroki-excalidraw
+    restart: unless-stopped
+    expose:
+      - "8004"
+
+networks:
+  default:
+    name: kroki-network
