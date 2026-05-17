@@ -26,7 +26,7 @@
 
 ```
 software-arch-ai/
-├── docker-compose.yml        ← bridge + kroki + mermaid + mcp-server + mcp-tls + vault-editor containers
+├── docker-compose.yml        ← bridge + kroki + mermaid + mcp-server + mcp-tls containers
 ├── scenes/                   ← .excalidraw files (shared Docker volume)
 ├── certs/                    ← generated at runtime by mcp-tls (gitignored)
 ├── diagrams-vault/           ← Obsidian vault (separate git repo, mounted into bridge)
@@ -39,7 +39,7 @@ software-arch-ai/
 ├── bridge/                   ← Fastify + chokidar + SSE (port 3001, Docker only)
 ├── excalidraw-app/           ← React/Vite app → nginx (port 3000)
 ├── nginx-tls/                ← nginx TLS proxy: HTTPS 3443 → HTTP mcp-http:3002
-├── vault-editor/             ← nginx SPA: markdown editor for vault .md files (port 4000)
+├── web/                      ← arch-doc-web: React + BlockNote + Mermaid editor (port 3000)
 └── mcp-server/               ← TypeScript MCP server (stdio + HTTP transports)
 ```
 
@@ -61,12 +61,11 @@ software-arch-ai/
 - `sanitizeName()` strips path traversal and enforces `.excalidraw` extension
 - SSE heartbeat every 25s to keep connections alive through nginx
 
-### vault-editor (`vault-editor/`)
-- nginx:alpine serving a static SPA at port 4000
-- Proxies `/api/` → `bridge:3001/` (SSE route handled separately for correct streaming)
-- SPA features: folder tree sidebar, Edit/Split/Preview mode, Ctrl+S save, + New, Delete, ⎇ Commit modal
-- No build step — plain HTML/CSS/JS with `marked.js` from CDN for markdown preview
-- Vault storage: git only — no database
+### web (`web/`)
+- React + Vite + TanStack Start, port 3000
+- BlockNote editor with custom `MermaidBlock` — converts mermaid/plantuml/graphviz/d2/c4plantuml/erd code fences to rendered diagrams via Kroki (`/api/kroki/render`)
+- Sidebar file tree, frontmatter panel, Ctrl+S save
+- Run: `cd web && pnpm run dev`
 
 ### kroki + mermaid (Docker services)
 - Kroki on port 8000 (`yuzutech/kroki`) — renders Mermaid, PlantUML, Graphviz/DOT, D2, C4, Structurizr, BPMN, Erd, Nomnoml, and ~20 more formats to SVG

@@ -78,20 +78,6 @@ services:
     networks:
       - arch-doc-net
 
-  # ── Vault Editor: BlockNote-based markdown + diagram editor ───────────────
-  vault-editor:
-    build:
-      context: ./vault-editor
-      dockerfile: Dockerfile
-    container_name: arch-doc-vault-editor
-    restart: unless-stopped
-    ports:
-      - "4000:4000"
-    depends_on:
-      - bridge
-    networks:
-      - arch-doc-net
-
 networks:
   arch-doc-net:
     driver: bridge

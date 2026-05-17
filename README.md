@@ -164,7 +164,7 @@ Services started:
 | `mermaid` | internal | Kroki companion for Mermaid |
 | `mcp-server` | http://localhost:3002/mcp | MCP HTTP endpoint |
 | `mcp-tls` | **https://localhost:3443** | TLS proxy for Claude connectors |
-| `vault-editor` | **http://localhost:4000** | BlockNote diagram editor |
+| `web` | **http://localhost:3000** | arch-doc-web editor (BlockNote + Mermaid) |
 
 ### 3. Initialise the vault
 
@@ -254,7 +254,7 @@ Render the diagram at Architecture/system-overview.md and show me the SVG
 
 ```
 excalidraw-mcp/
-├── docker-compose.yml           # bridge + kroki + mcp-server + mcp-tls + vault-editor
+├── docker-compose.yml           # bridge + kroki + mcp-server + mcp-tls
 ├── setup-vault.sh               # one-time vault init script
 │
 ├── diagrams-vault/              # Obsidian vault — diagram sources (separate git repo)
@@ -272,8 +272,8 @@ excalidraw-mcp/
 │   ├── Dockerfile
 │   └── nginx.conf
 │
-├── vault-editor/                # Astro + React + BlockNote (Docker, port 4000)
-│   ├── Dockerfile
+├── web/                         # arch-doc-web — React + BlockNote + Mermaid (port 3000)
+│   ├── src/
 │   ├── package.json
 │   └── src/
 │       ├── components/
