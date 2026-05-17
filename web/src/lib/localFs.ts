@@ -4,6 +4,19 @@ export async function openLocalFolder(): Promise<FileSystemDirectoryHandle> {
   return window.showDirectoryPicker({ mode: "readwrite" });
 }
 
+async function readFrontmatterStatus(fileHandle: FileSystemFileHandle): Promise<string | undefined> {
+  try {
+    const file = await fileHandle.getFile();
+    const text = await file.text();
+    const match = text.match(/^---[\r\n]([\s\S]*?)[\r\n]---/);
+    if (!match) return undefined;
+    const statusLine = match[1].split("\n").find((l) => l.trimStart().startsWith("status:"));
+    return statusLine?.split(":")[1]?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function walkDirectory(
   dirHandle: FileSystemDirectoryHandle,
   relativePath = ""
@@ -24,7 +37,8 @@ export async function walkDirectory(
       );
       items.push({ type: "dir", name, path: itemPath, children });
     } else if (name.endsWith(".md")) {
-      items.push({ type: "file", name, path: itemPath });
+      const status = await readFrontmatterStatus(handle as FileSystemFileHandle);
+      items.push({ type: "file", name, path: itemPath, status });
     }
   }
 

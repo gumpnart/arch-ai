@@ -84,10 +84,12 @@ interface LoadState {
 export function DocEditor({
   filePath,
   onSaveSuccess,
+  onLoad,
   fileOps,
 }: {
   filePath: string;
   onSaveSuccess: () => void;
+  onLoad?: (frontmatter: Frontmatter) => void;
   fileOps: FileOps;
 }) {
   const [loadState, setLoadState] = useState<LoadState | null>(null);
@@ -103,7 +105,10 @@ export function DocEditor({
       .then(async (content) => {
         const result = await markdownToBlocks(content, parseEditor);
         const blocks = toDiagramBlocks(result.blocks);
-        if (!ctrl.signal.aborted) setLoadState({ frontmatter: result.frontmatter, blocks });
+        if (!ctrl.signal.aborted) {
+          setLoadState({ frontmatter: result.frontmatter, blocks });
+          onLoad?.(result.frontmatter);
+        }
       })
       .catch((err) => {
         if (!ctrl.signal.aborted) setLoadError(String(err));

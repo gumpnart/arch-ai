@@ -124,6 +124,7 @@ export default function App() {
             key={selectedFile}
             filePath={selectedFile}
             onSaveSuccess={local.reload}
+            onLoad={(fm) => local.updateFileStatus(selectedFile, fm.status)}
             fileOps={fileOps}
           />
         ) : (

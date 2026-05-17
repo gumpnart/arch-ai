@@ -127,7 +127,12 @@ function DirNode({
   onSelect: (path: string) => void;
 } & FileTreeActions) {
   const dnd = useDnD();
-  const [expanded, setExpanded] = useState(depth < 2);
+  const storageKey = `sidebar-expanded:${node.path}`;
+  const [expanded, setExpanded] = useState(() => {
+    const stored = localStorage.getItem(storageKey);
+    return stored !== null ? stored === "true" : depth < 2;
+  });
+  useEffect(() => { localStorage.setItem(storageKey, String(expanded)); }, [expanded, storageKey]);
   const [hovered, setHovered] = useState(false);
   const [creating, setCreating] = useState<"file" | "dir" | null>(null);
   const [renaming, setRenaming] = useState(false);
