@@ -128,4 +128,4 @@ export const MermaidBlock = createReactBlockSpec(
       );
     },
   }
-);
+)();

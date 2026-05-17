@@ -1,5 +1,18 @@
 # Change Log
 
+## 2026-05-17 — feat: mermaid diagram rendering in arch-doc-web; remove vault-editor
+
+### Changes
+
+| Area | Change |
+|---|---|
+| `docker-compose.yml` | Removed `vault-editor` service — project no longer uses the vault-editor container |
+| `web/src/components/Editor/DocEditor.tsx` | Registers `MermaidBlock` in a custom BlockNote schema; converts `codeBlock` blocks with diagram languages (mermaid, plantuml, graphviz, d2, c4plantuml, erd) to `mermaid` blocks on load; serializes `mermaid` blocks back to code fences on save |
+| `web/src/components/Editor/MermaidBlock.tsx` | Called `createReactBlockSpec(...)()` — in BlockNote 0.51 the function returns a factory; call it to get the `BlockSpec` |
+| `web/vite.config.ts` | Ported `fixProsemirrorRenderSpec` from esbuild plugin (deprecated in Vite 8) to `optimizeDeps.rolldownOptions.plugins` with a Rolldown-compatible `transform` hook; added `server.port: 3000` |
+
+---
+
 ## 2026-05-16 — fix: web editor — file loading, BlockNote crash, port conflicts
 
 ### Bug Fixes

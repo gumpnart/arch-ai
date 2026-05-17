@@ -1,12 +1,1 @@
-{
-  "version": "0.0.1",
-  "configurations": [
-    {
-      "name": "web-dev",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 5173,
-      "cwd": "web"
-    }
-  ]
-}
+{"version":"0.0.1","configurations":[{"name":"arch-doc-web","runtimeExecutable":"pnpm","runtimeArgs":["run","dev"],"port":3000,"cwd":"web"}]}

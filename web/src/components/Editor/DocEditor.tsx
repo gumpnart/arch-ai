@@ -1,21 +1,80 @@
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { SuggestionMenuController, getDefaultReactSlashMenuItems } from "@blocknote/react";
-import { BlockNoteEditor, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
+import { BlockNoteEditor, BlockNoteSchema, defaultBlockSpecs, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
 import type { PartialBlock } from "@blocknote/core";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 
-import { markdownToBlocks, blocksToMarkdown } from "../../lib/markdown.js";
+import { markdownToBlocks } from "../../lib/markdown.js";
+import { serializeFrontmatter } from "../../lib/frontmatter.js";
 import { FrontmatterPanel } from "./FrontmatterPanel.js";
 import { EditorToolbar } from "./EditorToolbar.js";
+import { MermaidBlock } from "./MermaidBlock.js";
 import { useState, useEffect, useCallback } from "react";
 import type { Frontmatter } from "../../lib/frontmatter.js";
+
+// ── Schema with MermaidBlock ──────────────────────────────────────────────────
+
+const DIAGRAM_LANGS = new Set(["mermaid", "plantuml", "graphviz", "d2", "c4plantuml", "erd"]);
+
+const schema = BlockNoteSchema.create({
+  blockSpecs: { ...defaultBlockSpecs, mermaid: MermaidBlock },
+});
+
+// ── Block conversion helpers ──────────────────────────────────────────────────
+
+function toDiagramBlocks(blocks: PartialBlock[]): PartialBlock[] {
+  return blocks.map((block) => {
+    if (block.type === "codeBlock") {
+      const lang = (block.props as { language?: string })?.language ?? "";
+      if (DIAGRAM_LANGS.has(lang)) {
+        const dsl = (Array.isArray(block.content) ? block.content : [])
+          .map((c: any) => (c as { text?: string }).text ?? "")
+          .join("");
+        return {
+          id: block.id,
+          type: "mermaid",
+          props: { dsl, diagramType: lang, viewMode: "split" },
+        } as PartialBlock;
+      }
+    }
+    return block;
+  });
+}
+
+async function serializeDocBlocks(editor: BlockNoteEditor<any>, blocks: any[]): Promise<string> {
+  const parts: string[] = [];
+  let pending: any[] = [];
+
+  const flush = async () => {
+    if (!pending.length) return;
+    const md = await editor.blocksToMarkdownLossy(pending);
+    if (md.trim()) parts.push(md.trim());
+    pending = [];
+  };
+
+  for (const block of blocks) {
+    if (block.type === "mermaid") {
+      await flush();
+      const { dsl, diagramType } = block.props as { dsl: string; diagramType: string };
+      parts.push("```" + (diagramType || "mermaid") + "\n" + dsl + "\n```");
+    } else {
+      pending.push(block);
+    }
+  }
+  await flush();
+  return parts.join("\n\n") + "\n";
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface LoadState {
   frontmatter: Frontmatter;
   blocks: PartialBlock[];
 }
+
+// ── DocEditor (load + parse) ──────────────────────────────────────────────────
 
 export function DocEditor({
   filePath,
@@ -31,15 +90,14 @@ export function DocEditor({
     setLoadState(null);
     setLoadError("");
     const ctrl = new AbortController();
-    // Headless editor used only for markdown parsing — avoids needing
-    // the rendered editor to exist before content is available.
     const parseEditor = BlockNoteEditor.create();
 
     fetch(`/api/files?path=${encodeURIComponent(filePath)}`, { signal: ctrl.signal })
       .then((r) => r.json())
       .then(async ({ content }: { content: string }) => {
         const result = await markdownToBlocks(content, parseEditor);
-        if (!ctrl.signal.aborted) setLoadState(result);
+        const blocks = toDiagramBlocks(result.blocks);
+        if (!ctrl.signal.aborted) setLoadState({ frontmatter: result.frontmatter, blocks });
       })
       .catch((err) => {
         if (!ctrl.signal.aborted) setLoadError(String(err));
@@ -67,6 +125,8 @@ export function DocEditor({
   );
 }
 
+// ── EditorInner (render + save) ───────────────────────────────────────────────
+
 function EditorInner({
   filePath,
   initialFrontmatter,
@@ -83,7 +143,7 @@ function EditorInner({
   const [isSaving, setIsSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const editor = useCreateBlockNote({ initialContent: initialBlocks });
+  const editor = useCreateBlockNote({ schema, initialContent: initialBlocks });
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -91,7 +151,8 @@ function EditorInner({
     setIsSaving(true);
     try {
       const updatedFm = { ...frontmatter, updated: new Date().toISOString().split("T")[0] };
-      const markdown = await blocksToMarkdown(editor.document, updatedFm, editor);
+      const body = await serializeDocBlocks(editor as BlockNoteEditor<any>, editor.document);
+      const markdown = serializeFrontmatter(updatedFm, body);
       const res = await fetch(`/api/files?path=${encodeURIComponent(filePath)}`, {
         method: "PUT",
         headers: { "Content-Type": "text/plain" },
@@ -150,9 +211,8 @@ function EditorInner({
                       subtext: "Insert a Mermaid / C4 / PlantUML diagram block",
                       onItemClick: () =>
                         insertOrUpdateBlockForSlashMenu(editor, {
-                          type: "codeBlock",
-                          props: { language: "mermaid" },
-                          content: [{ type: "text", text: "graph TD\n  A --> B", styles: {} }],
+                          type: "mermaid",
+                          props: { dsl: "graph LR\n  A --> B", diagramType: "mermaid", viewMode: "split" },
                         }),
                       group: "Architecture",
                       icon: <span style={{ fontWeight: 700 }}>⬡</span>,
