@@ -1,7 +1,7 @@
 ---
-title: "arch-doc-system — System Context (C4 Level 1)"
+title: arch-doc-system — System Context (C4 Level 1)
 type: c4-context
-status: example
+status: draft
 created: 2026-05-16
 updated: 2026-05-16
 owner: Architecture Team

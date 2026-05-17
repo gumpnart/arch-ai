@@ -2,14 +2,13 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "strict": true,
+    "strictNullChecks": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "./dist-server",
     "paths": {}
   },
-  "include": ["src/**/*", "server/**/*"],
-  "exclude": ["node_modules", "dist", "dist-server"]
+  "include": ["src/**/*"]
 }

@@ -7,18 +7,18 @@ export async function getFiles() {
 }
 
 export async function getFile(filePath: string) {
-  const res = await fetch(`${BASE}/files/${encodeURIComponent(filePath)}`);
-  if (!res.ok) throw new Error(`GET /files/${filePath} failed: ${res.statusText}`);
+  const res = await fetch(`${BASE}/files?path=${encodeURIComponent(filePath)}`);
+  if (!res.ok) throw new Error(`GET /files?path=${filePath} failed: ${res.statusText}`);
   return res.json() as Promise<{ content: string; path: string }>;
 }
 
 export async function saveFile(filePath: string, content: string) {
-  const res = await fetch(`${BASE}/files/${encodeURIComponent(filePath)}`, {
+  const res = await fetch(`${BASE}/files?path=${encodeURIComponent(filePath)}`, {
     method: "PUT",
     headers: { "Content-Type": "text/plain" },
     body: content,
   });
-  if (!res.ok) throw new Error(`PUT /files/${filePath} failed: ${res.statusText}`);
+  if (!res.ok) throw new Error(`PUT /files?path=${filePath} failed: ${res.statusText}`);
   return res.json() as Promise<{ ok: boolean; path: string }>;
 }
 

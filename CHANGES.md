@@ -1,5 +1,20 @@
 # Change Log
 
+## 2026-05-16 — fix: web editor — file loading, BlockNote crash, port conflicts
+
+### Bug Fixes
+
+| File | Fix |
+|---|---|
+| `web/server/routes/files.ts` | `path.join` → `path.resolve` for all path traversal guards — file fetch returned 403 on Windows because `path.join(relative, ...)` produces a relative path that never `startsWith` the absolute resolved vault path |
+| `web/src/lib/markdown.ts` | Removed module-level `BlockNoteSchema.create({ blockSpecs: { ...defaultBlockSpecs } })` — passing core DOM-based block specs to `useCreateBlockNote` caused "Invalid array passed to renderSpec" crash in BlockNote v0.50.0 |
+| `web/src/components/Editor/DocEditor.tsx` | `useCreateBlockNote()` called without schema option — uses BlockNote's internal React-aware default schema; Diagram slash-menu item now inserts a proper `codeBlock` with `language: "mermaid"` |
+| `web/vite.config.ts` | Vite `/api` proxy target `http://localhost:5432` (PostgreSQL!) → `http://localhost:3030` |
+| `web/server/index.ts` | Server port default 3001 → 3030 to avoid conflict with Docker bridge on 3001; reads `WEB_PORT` env var |
+| `.env` | `WEB_PORT=3030` |
+
+---
+
 ## 2026-05-16 — chore: consolidate Kroki; rename excalidraw-mcp stack to arch-doc
 
 - Deleted standalone `kroki/docker-compose.yml` — root compose already provides Kroki on port 8000
