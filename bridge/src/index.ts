@@ -327,8 +327,11 @@ fastify.post<{ Body: { format?: string; source?: string } }>("/diagrams/render",
     return reply.status(400).send({ error: `Unsupported format: ${format}` });
   }
   try {
-    const encoded = Buffer.from(source, "utf-8").toString("base64");
-    const res = await fetch(`${KROKI_URL}/${format}/svg/${encoded}`);
+    const res = await fetch(`${KROKI_URL}/${format}/svg`, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: source,
+    });
     if (!res.ok) {
       const body = await res.text();
       return reply.status(422).send({ error: `Kroki error: ${body.slice(0, 200)}` });
