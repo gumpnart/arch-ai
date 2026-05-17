@@ -3,7 +3,7 @@ import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor, type FileOps } from "./components/Editor/DocEditor.js";
 import { useVaultFiles } from "./hooks/useVaultFiles.js";
 import { useLocalFolder } from "./hooks/useLocalFolder.js";
-import { createFile, deleteFile, renameFile } from "./api/client.js";
+import { createFile, deleteFile, renameFile, moveEntry } from "./api/client.js";
 
 const DEFAULT_MD = (name: string) => {
   const title = name.replace(/\.md$/, "");
@@ -89,18 +89,41 @@ export default function App() {
     ? { read: local.readFile, write: local.writeFile }
     : undefined;
 
+  // ── Move handler (called by FileTree DnD) ───────────────────────────────────
+  const handleLocalMove = useCallback(async (sourcePaths: string[], targetDir: string | null) => {
+    const pathMap: Record<string, string> = {};
+    for (const src of sourcePaths) {
+      const newPath = await local.moveEntryToDir(src, targetDir);
+      pathMap[src] = newPath;
+    }
+    await local.reload();
+    if (selectedFile && pathMap[selectedFile]) setSelectedFile(pathMap[selectedFile]);
+  }, [local, selectedFile]);
+
+  const handleVaultMove = useCallback(async (sourcePaths: string[], targetDir: string | null) => {
+    const pathMap: Record<string, string> = {};
+    for (const src of sourcePaths) {
+      const res = await moveEntry(src, targetDir);
+      pathMap[src] = res.path;
+    }
+    await reloadVault();
+    if (selectedFile && pathMap[selectedFile]) setSelectedFile(pathMap[selectedFile]);
+  }, [reloadVault, selectedFile]);
+
   const treeActions = isLocal
     ? {
         onNewFile: handleLocalNewFile,
         onNewDir: handleLocalNewDir,
         onRename: handleLocalRename,
         onDelete: handleLocalDelete,
+        onMove: handleLocalMove,
       }
     : {
         onNewFile: handleVaultNewFile,
         onNewDir: handleVaultNewDir,
         onRename: handleVaultRename,
         onDelete: handleVaultDelete,
+        onMove: handleVaultMove,
       };
 
   return (

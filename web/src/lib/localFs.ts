@@ -104,11 +104,93 @@ export async function renameLocalEntry(
   oldPath: string,
   newName: string
 ): Promise<string> {
-  const content = await readLocalFile(rootHandle, oldPath);
   const parts = oldPath.replace(/\\/g, "/").split("/");
   parts[parts.length - 1] = newName;
   const newPath = parts.join("/");
-  await writeLocalFile(rootHandle, newPath, content);
-  await deleteLocalEntry(rootHandle, oldPath);
+  await moveLocalEntry(rootHandle, oldPath, newPath);
   return newPath;
 }
+
+async function getDirHandle(
+  rootHandle: FileSystemDirectoryHandle,
+  dirPath: string
+): Promise<FileSystemDirectoryHandle> {
+  const parts = dirPath.replace(/\\/g, "/").split("/").filter(Boolean);
+  let dir = rootHandle;
+  for (const part of parts) {
+    dir = await dir.getDirectoryHandle(part);
+  }
+  return dir;
+}
+
+async function copyDirRecursive(
+  rootHandle: FileSystemDirectoryHandle,
+  srcDirHandle: FileSystemDirectoryHandle,
+  destPath: string
+): Promise<void> {
+  for await (const [name, handle] of srcDirHandle as unknown as AsyncIterable<
+    [string, FileSystemHandle]
+  >) {
+    const destItemPath = `${destPath}/${name}`;
+    if (handle.kind === "directory") {
+      await copyDirRecursive(rootHandle, handle as FileSystemDirectoryHandle, destItemPath);
+    } else {
+      const file = await (handle as FileSystemFileHandle).getFile();
+      const content = await file.text();
+      await writeLocalFile(rootHandle, destItemPath, content);
+    }
+  }
+}
+
+export async function moveLocalEntry(
+  rootHandle: FileSystemDirectoryHandle,
+  srcPath: string,
+  destPath: string
+): Promise<void> {
+  const isDir = !srcPath.includes(".") || srcPath.endsWith("/");
+  const { parent: srcParent, name: srcName } = await resolvePath(rootHandle, srcPath);
+
+  try {
+    if (isDir) {
+      const srcDirHandle = await srcParent.getDirectoryHandle(srcName);
+      await copyDirRecursive(rootHandle, srcDirHandle, destPath);
+    } else {
+      const fileHandle = await srcParent.getFileHandle(srcName);
+      const file = await fileHandle.getFile();
+      const content = await file.text();
+      await writeLocalFile(rootHandle, destPath, content);
+    }
+  } catch (e) {
+    // If isDir heuristic was wrong, try the other kind
+    if ((e as Error).name === "TypeMismatchError") {
+      if (isDir) {
+        const fileHandle = await srcParent.getFileHandle(srcName);
+        const file = await fileHandle.getFile();
+        const content = await file.text();
+        await writeLocalFile(rootHandle, destPath, content);
+      } else {
+        const srcDirHandle = await srcParent.getDirectoryHandle(srcName);
+        await copyDirRecursive(rootHandle, srcDirHandle, destPath);
+      }
+    } else {
+      throw e;
+    }
+  }
+
+  await deleteLocalEntry(rootHandle, srcPath);
+}
+
+// Move srcPath into targetDir (keep the same entry name)
+export async function moveLocalEntryToDir(
+  rootHandle: FileSystemDirectoryHandle,
+  srcPath: string,
+  targetDir: string | null
+): Promise<string> {
+  const name = srcPath.replace(/\\/g, "/").split("/").pop()!;
+  const destPath = targetDir ? `${targetDir}/${name}` : name;
+  await moveLocalEntry(rootHandle, srcPath, destPath);
+  return destPath;
+}
+
+// Unused but kept for potential direct use
+export { getDirHandle };

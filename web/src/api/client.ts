@@ -50,6 +50,16 @@ export async function renameFile(filePath: string, newName: string) {
   return res.json() as Promise<{ ok: boolean; path: string }>;
 }
 
+export async function moveEntry(filePath: string, targetDir: string | null) {
+  const res = await fetch(`${BASE}/files?path=${encodeURIComponent(filePath)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetDir }),
+  });
+  if (!res.ok) throw new Error(`PATCH /files (move) failed: ${res.statusText}`);
+  return res.json() as Promise<{ ok: boolean; path: string }>;
+}
+
 export async function renderKroki(diagramType: string, dsl: string, format = "svg") {
   const res = await fetch(`${BASE}/kroki/render`, {
     method: "POST",

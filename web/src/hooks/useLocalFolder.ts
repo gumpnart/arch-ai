@@ -9,6 +9,7 @@ import {
   createLocalDir,
   deleteLocalEntry,
   renameLocalEntry,
+  moveLocalEntryToDir,
 } from "../lib/localFs.js";
 
 export interface LocalFolderState {
@@ -26,6 +27,7 @@ export interface LocalFolderState {
   createDir: (parentDir: string | null, name: string) => Promise<string>;
   deleteEntry: (path: string) => Promise<void>;
   renameEntry: (oldPath: string, newName: string) => Promise<string>;
+  moveEntryToDir: (srcPath: string, targetDir: string | null) => Promise<string>;
 }
 
 export function useLocalFolder(): LocalFolderState {
@@ -125,6 +127,14 @@ export function useLocalFolder(): LocalFolderState {
     [dirHandle]
   );
 
+  const moveEntryToDir = useCallback(
+    (srcPath: string, targetDir: string | null) => {
+      if (!dirHandle) throw new Error("No folder open");
+      return moveLocalEntryToDir(dirHandle, srcPath, targetDir);
+    },
+    [dirHandle]
+  );
+
   return {
     isOpen: !!dirHandle,
     folderName,
@@ -140,5 +150,6 @@ export function useLocalFolder(): LocalFolderState {
     createDir,
     deleteEntry,
     renameEntry,
+    moveEntryToDir,
   };
 }

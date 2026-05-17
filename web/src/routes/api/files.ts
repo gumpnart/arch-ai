@@ -108,17 +108,31 @@ export const Route = createFileRoute("/api/files")({
         const filePath = resolveFilePath(relPath);
         if (!filePath)
           return Response.json({ error: "Forbidden" }, { status: 403 });
-        const { newName } = (await request.json()) as { newName: string };
-        if (!newName)
-          return Response.json({ error: "newName required" }, { status: 400 });
-        const newFilePath = path.resolve(path.dirname(filePath), newName);
-        if (!newFilePath.startsWith(VAULT_PATH))
+        const body = (await request.json()) as { newName?: string; targetDir?: string | null };
+        let newRelPath: string;
+        if (body.targetDir !== undefined) {
+          // Move: keep same filename, place in targetDir (null = vault root)
+          const filename = path.basename(relPath);
+          newRelPath = body.targetDir ? `${body.targetDir}/${filename}` : filename;
+        } else if (body.newName) {
+          // Rename in place
+          const dir = path.dirname(relPath).replace(/\\/g, "/");
+          newRelPath = dir === "." ? body.newName : `${dir}/${body.newName}`;
+        } else {
+          return Response.json({ error: "newName or targetDir required" }, { status: 400 });
+        }
+        const newFilePath = resolveFilePath(newRelPath);
+        if (!newFilePath)
           return Response.json({ error: "Forbidden" }, { status: 403 });
-        if (!newFilePath.endsWith(".md"))
+        // Enforce .md only for files, not directories
+        let isFile = true;
+        try { isFile = (await fs.stat(filePath)).isFile(); } catch { /* assume file */ }
+        if (isFile && !newFilePath.endsWith(".md"))
           return Response.json({ error: "Only .md files allowed" }, { status: 400 });
         try {
+          await fs.mkdir(path.dirname(newFilePath), { recursive: true });
           await fs.rename(filePath, newFilePath);
-          return Response.json({ ok: true, path: path.relative(VAULT_PATH, newFilePath) });
+          return Response.json({ ok: true, path: newRelPath });
         } catch (err) {
           return Response.json({ error: String(err) }, { status: 500 });
         }

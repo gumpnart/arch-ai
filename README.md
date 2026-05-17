@@ -72,8 +72,12 @@ The web editor supports two modes:
 - Browse any folder from your machine — markdown files shown in the tree
 - Hover a file → ✏️ rename or 🗑️ delete (inline input, no modal)
 - Hover a folder → +📄 new file or +📁 new subfolder
+- **Drag & drop** files or folders to move them; drop on a dir or the root zone
+- **Multi-select** with Ctrl/Cmd+Click → drag all selected items together
 - Ctrl+S saves directly to disk via `FileSystemFileHandle.createWritable()`
 - Click "← Vault" to return to vault mode
+
+> Drag-and-drop and inline CRUD actions (rename, delete, new file, new folder) also work in **vault mode** via the server API.
 
 ### MCP Config (Claude Code CLI)
 
