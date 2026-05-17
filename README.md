@@ -22,7 +22,7 @@ GitHub Actions      CI/CD — build + deploy to GitHub Pages
   ↓
 VitePress Site       Static site — published docs
 
-Browser → web/      React + BlockNote editor (port 5173)
+Browser → web/      React + BlockNote editor (port 3000) — full-width diagram blocks, zoom/pan preview
   ↓ fetch /api/*
 web/server/         Express API — reads/writes vault files
   ↓ proxy

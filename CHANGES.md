@@ -1,5 +1,35 @@
 # Change Log
 
+## 2026-05-17 — feat: mermaid block height resizable
+
+### Changes
+
+| Area | Change |
+|---|---|
+| `web/src/components/Editor/MermaidBlock.tsx` | Added `blockHeight` state (default 320px) applied to the content container for all layouts/modes. A 6px `ns-resize` handle at the bottom lets users drag to resize the entire block (minimum 100px). Removed all hardcoded `minHeight: 160` from panels — the explicit container height makes them unnecessary. |
+
+---
+
+## 2026-05-17 — fix: mermaid block top/bottom split drag non-functional
+
+### Bug Fixes
+
+| Area | Fix |
+|---|---|
+| `web/src/components/Editor/MermaidBlock.tsx` | Top/bottom split drag was inoperative — `flex` ratios in column direction require the parent to have an explicit height. Fixed by setting `height: 320px` on the content container in vertical split mode and clearing `minHeight` on both panels so flex can size them proportionally. |
+
+---
+
+## 2026-05-17 — feat: mermaid block layout picker + draggable split + zoom/pan preview
+
+### Changes
+
+| Area | Change |
+|---|---|
+| `web/src/components/Editor/MermaidBlock.tsx` | Block fits within document flow (no overflow). Added `layout` prop (`left`/`right`/`top`/`bottom`) — controls where the code pane sits relative to the preview in split mode. Arrow buttons (← → ↑ ↓) in the toolbar switch layout; only visible in Split mode. Top/bottom layouts use `flexDirection: column` with a `row-resize` divider; left/right use `row` with `col-resize`. Split ratio resets to 50/50 on layout change. Preview pane supports scroll-to-zoom, drag-to-pan, double-click to reset. |
+
+---
+
 ## 2026-05-17 — feat: mermaid diagram rendering in arch-doc-web; remove vault-editor
 
 ### Changes
