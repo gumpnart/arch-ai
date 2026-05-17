@@ -101,6 +101,56 @@ export const Route = createFileRoute("/api/files")({
           return Response.json({ error: String(err) }, { status: 500 });
         }
       },
+      PATCH: async ({ request }) => {
+        const relPath = new URL(request.url).searchParams.get("path");
+        if (!relPath)
+          return Response.json({ error: "path required" }, { status: 400 });
+        const filePath = resolveFilePath(relPath);
+        if (!filePath)
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        const body = (await request.json()) as { newName?: string; targetDir?: string | null };
+        let newRelPath: string;
+        if (body.targetDir !== undefined) {
+          // Move: keep same filename, place in targetDir (null = vault root)
+          const filename = path.basename(relPath);
+          newRelPath = body.targetDir ? `${body.targetDir}/${filename}` : filename;
+        } else if (body.newName) {
+          // Rename in place
+          const dir = path.dirname(relPath).replace(/\\/g, "/");
+          newRelPath = dir === "." ? body.newName : `${dir}/${body.newName}`;
+        } else {
+          return Response.json({ error: "newName or targetDir required" }, { status: 400 });
+        }
+        const newFilePath = resolveFilePath(newRelPath);
+        if (!newFilePath)
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        // Enforce .md only for files, not directories
+        let isFile = true;
+        try { isFile = (await fs.stat(filePath)).isFile(); } catch { /* assume file */ }
+        if (isFile && !newFilePath.endsWith(".md"))
+          return Response.json({ error: "Only .md files allowed" }, { status: 400 });
+        try {
+          await fs.mkdir(path.dirname(newFilePath), { recursive: true });
+          await fs.rename(filePath, newFilePath);
+          return Response.json({ ok: true, path: newRelPath });
+        } catch (err) {
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
+      },
+      DELETE: async ({ request }) => {
+        const relPath = new URL(request.url).searchParams.get("path");
+        if (!relPath)
+          return Response.json({ error: "path required" }, { status: 400 });
+        const filePath = resolveFilePath(relPath);
+        if (!filePath)
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        try {
+          await fs.unlink(filePath);
+          return Response.json({ ok: true });
+        } catch (err) {
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
+      },
     },
   },
 });

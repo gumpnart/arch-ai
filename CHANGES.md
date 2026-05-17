@@ -1,5 +1,67 @@
 # Change Log
 
+## 2026-05-17 — feat: drag-and-drop move + multi-select in file explorer
+
+### Overview
+
+Added VS Code-style drag-and-drop file management to the `web/` editor's sidebar file tree. Files and folders can be dragged to any directory (or the root drop zone); Ctrl+Click (or Cmd+Click) builds a multi-selection that can all be dragged together. Works in both vault server mode and local folder mode.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/components/Sidebar/FileTree.tsx` | Added `DnDCtx` React context sharing drag state (draggingPaths, dropTargetDir, selectedPaths) across all recursive tree nodes without prop drilling. Every `DirNode` and `FileItem` is `draggable`. Dir headers and children containers handle `onDragOver`/`onDrop` with `stopPropagation` so only the innermost valid dir highlights. Collapsed dirs auto-expand after 600ms hover during a drag. Multi-file ghost image shows "📦 N items" via `setDragImage`. Root drop zone banner appears during any drag. `isValidDrop` blocks drops onto self or descendants. |
+| `web/src/App.tsx` | Added `handleLocalMove` and `handleVaultMove` callbacks; each iterates source paths, calls the appropriate move API, reloads the tree, and updates `selectedFile` if it was moved. Passes `onMove` through `treeActions`. |
+| `web/src/lib/localFs.ts` | Added `moveLocalEntry(rootHandle, srcPath, destPath)` (recursive copy + delete for dirs; read+write+delete for files), `moveLocalEntryToDir(rootHandle, srcPath, targetDir)` (keeps filename), and `copyDirRecursive` helper. Updated `renameLocalEntry` to delegate to `moveLocalEntry`. |
+| `web/src/hooks/useLocalFolder.ts` | Added `moveEntryToDir(srcPath, targetDir)` to the hook interface and implementation. |
+| `web/src/routes/api/files.ts` | Updated `PATCH` handler to accept `{ targetDir?: string \| null }` for moves (in addition to existing `{ newName }` for rename); uses `fs.rename` (works for dirs too); creates target parent dirs with `mkdir -p`. |
+| `web/src/api/client.ts` | Added `moveEntry(filePath, targetDir)` typed fetch wrapper (`PATCH` with `{ targetDir }`). |
+
+### Behaviour details
+
+- **Multi-select**: Ctrl/Cmd+Click files or folders to add to selection; next plain click resets
+- **Drag**: dragging a selected item drags the whole selection; dragging an unselected item drags just that item
+- **Drop target highlight**: only the innermost valid dir highlights (blue background + outline); root zone shown as dashed banner
+- **Auto-expand**: dragging over a collapsed folder for 600ms expands it
+- **Invalid targets**: cannot drop into self, own descendants, or current parent (no-op)
+- **After move**: tree reloads; active editor file path updated if it was in the moved set
+
+---
+
+## 2026-05-17 — feat: local file system support in web editor
+
+### Overview
+
+Added full local folder support to the `web/` editor using the **File System Access API** (`showDirectoryPicker`). Users can now open any folder from their machine (like VS Code "Open Folder"), browse its markdown files, and create, edit, rename, and delete files — all without a server round-trip. The vault server mode remains the default; local mode is a parallel mode toggled from the sidebar.
+
+### New files
+
+| File | Description |
+|---|---|
+| `web/src/lib/localFs.ts` | File System Access API utilities: `openLocalFolder`, `walkDirectory`, `readLocalFile`, `writeLocalFile`, `createLocalFile`, `createLocalDir`, `deleteLocalEntry`, `renameLocalEntry` |
+| `web/src/hooks/useLocalFolder.ts` | React hook managing `FileSystemDirectoryHandle` state, directory tree, and all CRUD operations with reload |
+
+### Changed files
+
+| File | Change |
+|---|---|
+| `web/src/App.tsx` | Dual-mode sidebar: vault (default) vs local folder. "Open Folder" button triggers `showDirectoryPicker`; "← Vault" returns to vault mode. Passes `fileOps` to `DocEditor` when in local mode. Full CRUD callbacks wired for both modes. |
+| `web/src/components/Sidebar/FileTree.tsx` | VS Code-style hover actions: ✏️ rename and 🗑️ delete on file rows; +📄/+📁 on directory rows; inline text inputs for new file/folder names and rename. Accepts optional `onNewFile`, `onNewDir`, `onRename`, `onDelete` callbacks. |
+| `web/src/components/Editor/DocEditor.tsx` | Accepts optional `fileOps?: { read, write }` prop. When provided, uses File System API instead of fetch for load and save — enabling full local-file editing in the BlockNote editor. |
+| `web/src/routes/api/files.ts` | Added `PATCH` handler (rename file via `fs.rename`) and `DELETE` handler (`fs.unlink`) to the vault server route. |
+| `web/src/api/client.ts` | Added `deleteFile(path)` and `renameFile(path, newName)` typed fetch wrappers for the new server endpoints. |
+
+### Features
+
+- **Open Folder** — `showDirectoryPicker({ mode: 'readwrite' })` with recursive tree walk; skips dotfiles and `node_modules`
+- **New file / New folder** — inline input inside any directory row or at root; auto-appends `.md` extension for files
+- **Rename** — inline input replacing the filename; reads original content, writes new path, deletes old (File System API has no native rename)
+- **Delete** — `confirm()` before `removeEntry({ recursive: true })`; deselects the file if it was open
+- **Edit + Save** — BlockNote editor reads and writes directly via `FileSystemFileHandle`; Ctrl+S works identically to vault mode
+- **Vault CRUD** — rename and delete also available for vault files (new server `PATCH`/`DELETE` endpoints)
+
+---
+
 ## 2026-05-17 — feat: mermaid block height resizable
 
 ### Changes
