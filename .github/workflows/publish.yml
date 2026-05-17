@@ -1,0 +1,37 @@
+name: Build & Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ["vault/**", "site/**"]
+  pull_request:
+    branches: [main]
+    paths: ["vault/**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: site/package.json
+      - run: cd site && npm install
+      - name: Check for broken wikilinks
+        run: |
+          grep -rh "\[\[" vault/ --include="*.md" \
+            | grep -oP '(?<=\[\[)[^\]]+' \
+            | while read link; do
+                name="${link%%|*}"
+                find vault -name "${name}.md" > /dev/null 2>&1 \
+                  || echo "BROKEN LINK: [[$name]]"
+              done
+      - run: cd site && npm run build
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist

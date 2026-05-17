@@ -1,5 +1,75 @@
 # Change Log
 
+## 2026-05-16 — fix: web editor — file loading, BlockNote crash, port conflicts
+
+### Bug Fixes
+
+| File | Fix |
+|---|---|
+| `web/server/routes/files.ts` | `path.join` → `path.resolve` for all path traversal guards — file fetch returned 403 on Windows because `path.join(relative, ...)` produces a relative path that never `startsWith` the absolute resolved vault path |
+| `web/src/lib/markdown.ts` | Removed module-level `BlockNoteSchema.create({ blockSpecs: { ...defaultBlockSpecs } })` — passing core DOM-based block specs to `useCreateBlockNote` caused "Invalid array passed to renderSpec" crash in BlockNote v0.50.0 |
+| `web/src/components/Editor/DocEditor.tsx` | `useCreateBlockNote()` called without schema option — uses BlockNote's internal React-aware default schema; Diagram slash-menu item now inserts a proper `codeBlock` with `language: "mermaid"` |
+| `web/vite.config.ts` | Vite `/api` proxy target `http://localhost:5432` (PostgreSQL!) → `http://localhost:3030` |
+| `web/server/index.ts` | Server port default 3001 → 3030 to avoid conflict with Docker bridge on 3001; reads `WEB_PORT` env var |
+| `.env` | `WEB_PORT=3030` |
+
+---
+
+## 2026-05-16 — chore: consolidate Kroki; rename excalidraw-mcp stack to arch-doc
+
+- Deleted standalone `kroki/docker-compose.yml` — root compose already provides Kroki on port 8000
+- Renamed all Docker containers/network from `excalidraw-*`/`diagrams-*` to `arch-doc-*`
+  - `excalidraw-bridge` → `arch-doc-bridge`
+  - `excalidraw-kroki` → `arch-doc-kroki`
+  - `excalidraw-mermaid` → `arch-doc-mermaid`
+  - `diagrams-mcp` → `arch-doc-mcp`
+  - `diagrams-mcp-tls` → `arch-doc-mcp-tls`
+  - `diagrams-vault-editor` → `arch-doc-vault-editor`
+  - network `excalidraw-net` → `arch-doc-net`
+- Updated CLAUDE.md: project title, container name in Docker config, host paths
+- **Action required**: update `claude_desktop_config.json` container name to `arch-doc-mcp`
+
+---
+
+## 2026-05-16 — feat: add arch-doc-system (arch-doc-mcp + vault + site + web editor)
+
+### Overview
+
+Added a complete AI-powered architecture documentation pipeline alongside the existing excalidraw-mcp stack. The system consists of an MCP server with 12 SA document templates, a self-hosted Kroki diagram renderer, an Obsidian vault, a VitePress static site, and a BlockNote-based web editor.
+
+### Added
+
+| What | Phase | Details |
+|---|---|---|
+| `arch-doc-mcp/` | 1–2 | MCP server with 12 SA templates + Kroki bridge. 8 tools registered. |
+| `kroki/docker-compose.yml` | 3 | Self-hosted Kroki stack (kroki + mermaid + bpmn + excalidraw containers) |
+| `vault/` | 4 | Obsidian vault structure with 3 example docs (SAD, ADR-001, C4-L1) |
+| `site/` | 5 | VitePress static site config with Mermaid plugin |
+| `.github/workflows/publish.yml` | 5 | CI/CD: vault push → build + deploy to GitHub Pages |
+| `.claude/mcp.json` | 6 | MCP config for both arch-doc-mcp and kroki-mcp |
+| `web/` | 9 | React + BlockNote vault editor with Express API and Kroki proxy |
+| `.env` | — | Root environment variables |
+| `package.json` | — | Monorepo scripts for all components |
+
+### arch-doc-mcp Tools
+
+| Tool | Description |
+|---|---|
+| `list_templates` | List all SA templates with optional category filter |
+| `get_template` | Get full template content by ID |
+| `get_template_placeholders` | List all `{{var}}` placeholders in a template |
+| `fill_template` | Fill placeholders with provided values |
+| `get_document_checklist` | Get documents required for a project phase |
+| `generate_document` | High-level: description → filled draft |
+| `render_and_embed_diagram` | Render DSL via Kroki + embed in template |
+| `get_diagram_dsl_prompt` | Get DSL generation instructions for a diagram type |
+
+### Templates (12)
+
+SAD, NFR, C4-L1 (System Context), C4-L2 (Container), C4-L3 (Component), ADR, Data Architecture, Integration Architecture, Security Architecture, Infrastructure Architecture, Risk Register, Runbook
+
+---
+
 ## 2026-05-14 — feat: remove Excalidraw entirely; replace with diagram-as-code MCP + Kroki
 
 ### Overview

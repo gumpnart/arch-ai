@@ -1,4 +1,71 @@
-# Diagram-as-Code MCP
+# software-arch-ai
+
+AI-powered architecture documentation system. Two integrated stacks:
+
+1. **arch-doc-system** — SA document templates + Kroki bridge MCP server, Obsidian vault, VitePress static site, BlockNote web editor
+2. **excalidraw-mcp** (legacy) — diagram-as-code MCP + Kroki + vault editor Docker stack
+
+---
+
+## arch-doc-system (Phases 1–9)
+
+```
+Claude (claude.ai)
+  ↓ MCP stdio
+arch-doc-mcp        Node.js — 12 SA templates + Kroki bridge (8 tools)
+  ↓ HTTP
+Kroki Server        Docker — diagram DSL → SVG/PNG (port 8000)
+
+vault/              Git repo — Obsidian .md files, human-verified
+  ↓ git push
+GitHub Actions      CI/CD — build + deploy to GitHub Pages
+  ↓
+VitePress Site       Static site — published docs
+
+Browser → web/      React + BlockNote editor (port 5173)
+  ↓ fetch /api/*
+web/server/         Express API — reads/writes vault files
+  ↓ proxy
+Kroki :8000         Diagram preview rendering
+```
+
+### arch-doc-mcp Tools
+
+| Tool | Description |
+|---|---|
+| `list_templates` | List all 12 SA templates (optional category filter) |
+| `get_template` | Get full template content by ID |
+| `get_template_placeholders` | List `{{var}}` placeholders in a template |
+| `fill_template` | Fill placeholders with values |
+| `get_document_checklist` | Documents needed per project phase |
+| `generate_document` | Description → filled draft |
+| `render_and_embed_diagram` | Render DSL via Kroki + embed in template |
+| `get_diagram_dsl_prompt` | DSL generation instructions for a diagram type |
+
+### Quick Start
+
+```bash
+# 1. Build MCP server
+cd arch-doc-mcp && npm install && npm run build
+
+# 2. Start Kroki
+cd kroki && docker compose up -d
+
+# 3. Start web editor
+cd web && VAULT_PATH=../vault npm run dev
+# → http://localhost:5173
+
+# 4. Run tests
+cd arch-doc-mcp && npm test
+```
+
+### MCP Config (Claude Code CLI)
+
+`.claude/mcp.json` is pre-configured for both `arch-doc-mcp` and `kroki-mcp`.
+
+---
+
+## excalidraw-mcp (legacy)
 
 **Docker stack** for generating and managing software architecture diagrams as code, with a Claude MCP server backed by [Kroki](https://kroki.io) and a **BlockNote-powered vault editor**.
 

@@ -1,0 +1,19 @@
+{
+  "name": "arch-doc-system",
+  "private": true,
+  "scripts": {
+    "dev:kroki": "cd kroki && docker compose up",
+    "dev:mcp":   "cd arch-doc-mcp && cross-env KROKI_URL=http://localhost:8000 node dist/index.js",
+    "dev:web":   "cd web && cross-env VAULT_PATH=../vault npm run dev",
+    "dev:site":  "cd site && npm run dev",
+    "dev":       "concurrently \"npm:dev:kroki\" \"npm:dev:web\"",
+    "build:mcp": "cd arch-doc-mcp && npm run build",
+    "build:site":"cd site && npm run build",
+    "build":     "npm run build:mcp && npm run build:site",
+    "test:mcp":  "cd arch-doc-mcp && npm test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3"
+  }
+}
