@@ -22,9 +22,7 @@ GitHub Actions      CI/CD — build + deploy to GitHub Pages
   ↓
 VitePress Site       Static site — published docs
 
-Browser → web/      React + BlockNote editor (port 3000) — full-width diagram blocks, zoom/pan preview
-  ↓ fetch /api/*
-web/server/         Express API — reads/writes vault files
+Browser → web/      React + BlockNote editor (port 3000) — local folder via File System Access API, full-width diagram blocks, zoom/pan preview
   ↓ proxy
 Kroki :8000         Diagram preview rendering
 ```
