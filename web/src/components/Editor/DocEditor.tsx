@@ -88,7 +88,7 @@ export function DocEditor({
 }: {
   filePath: string;
   onSaveSuccess: () => void;
-  fileOps?: FileOps;
+  fileOps: FileOps;
 }) {
   const [loadState, setLoadState] = useState<LoadState | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -99,13 +99,7 @@ export function DocEditor({
     const ctrl = new AbortController();
     const parseEditor = BlockNoteEditor.create();
 
-    const contentPromise = fileOps
-      ? fileOps.read(filePath)
-      : fetch(`/api/files?path=${encodeURIComponent(filePath)}`, { signal: ctrl.signal })
-          .then((r) => r.json())
-          .then(({ content }: { content: string }) => content);
-
-    contentPromise
+    fileOps.read(filePath)
       .then(async (content) => {
         const result = await markdownToBlocks(content, parseEditor);
         const blocks = toDiagramBlocks(result.blocks);
@@ -116,7 +110,7 @@ export function DocEditor({
       });
 
     return () => ctrl.abort();
-  }, [filePath, fileOps]);
+  }, [filePath]);
 
   if (loadError) {
     return <div style={{ padding: 20, color: "#e53935" }}>Error: {loadError}</div>;
@@ -151,7 +145,7 @@ function EditorInner({
   initialFrontmatter: Frontmatter;
   initialBlocks: PartialBlock[];
   onSaveSuccess: () => void;
-  fileOps?: FileOps;
+  fileOps: FileOps;
 }) {
   const [frontmatter, setFrontmatter] = useState<Frontmatter>(initialFrontmatter);
   const [isDirty, setIsDirty] = useState(false);
@@ -168,23 +162,10 @@ function EditorInner({
       const updatedFm = { ...frontmatter, updated: new Date().toISOString().split("T")[0] };
       const body = await serializeDocBlocks(editor as BlockNoteEditor<any>, editor.document);
       const markdown = serializeFrontmatter(updatedFm, body);
-      if (fileOps) {
-        await fileOps.write(filePath, markdown);
-        setIsDirty(false);
-        setFrontmatter(updatedFm);
-        onSaveSuccess();
-      } else {
-        const res = await fetch(`/api/files?path=${encodeURIComponent(filePath)}`, {
-          method: "PUT",
-          headers: { "Content-Type": "text/plain" },
-          body: markdown,
-        });
-        if (res.ok) {
-          setIsDirty(false);
-          setFrontmatter(updatedFm);
-          onSaveSuccess();
-        }
-      }
+      await fileOps.write(filePath, markdown);
+      setIsDirty(false);
+      setFrontmatter(updatedFm);
+      onSaveSuccess();
     } finally {
       setIsSaving(false);
     }

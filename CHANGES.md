@@ -1,5 +1,18 @@
 # Change Log
 
+## 2026-05-17 — refactor: remove server file loading, local filesystem only
+
+### Overview
+
+Removed vault/server mode from the `web/` editor. The app now operates exclusively via the browser's File System Access API — users open a local folder and all reads/writes go directly to disk with no server round-trips. The dual-mode toggle, vault handlers, and server API client calls are gone.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/App.tsx` | Removed `mode` state, `useVaultFiles`, all vault handler callbacks (`handleVaultNew*`, `handleVaultRename`, `handleVaultDelete`, `handleVaultMove`), and `api/client` imports. App always uses `useLocalFolder`. `folderOpen` now reads from `local.isOpen` (not `!!local.tree`). Sidebar shows "No folder open" until a folder is selected; `+📄`/`+📁` buttons hidden until folder is open. |
+| `web/src/components/Editor/DocEditor.tsx` | Made `fileOps` required (not optional) on both `DocEditor` and `EditorInner`. Removed server `fetch` fallback in `useEffect` load path and server `PUT` fallback in `handleSave`. Dependency array for load effect simplified to `[filePath]`. |
+
 ## 2026-05-17 — feat: drag-and-drop move + multi-select in file explorer
 
 ### Overview

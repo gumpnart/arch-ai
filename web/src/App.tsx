@@ -1,9 +1,7 @@
 import { useState, useCallback } from "react";
 import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor, type FileOps } from "./components/Editor/DocEditor.js";
-import { useVaultFiles } from "./hooks/useVaultFiles.js";
 import { useLocalFolder } from "./hooks/useLocalFolder.js";
-import { createFile, deleteFile, renameFile, moveEntry } from "./api/client.js";
 
 const DEFAULT_MD = (name: string) => {
   const title = name.replace(/\.md$/, "");
@@ -13,84 +11,32 @@ const DEFAULT_MD = (name: string) => {
 
 export default function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [mode, setMode] = useState<"vault" | "local">("vault");
-
-  // ── Vault mode ───────────────────────────────────────────────────────────────
-  const { tree: vaultTree, reload: reloadVault } = useVaultFiles();
-
-  const handleVaultNewFile = useCallback(async (parentDir: string | null, name: string) => {
-    const filePath = parentDir ? `${parentDir}/${name}` : name;
-    await createFile(filePath, DEFAULT_MD(name));
-    await reloadVault();
-    setSelectedFile(filePath);
-  }, [reloadVault]);
-
-  const handleVaultNewDir = useCallback(async (_parentDir: string | null, _name: string) => {
-    // Vault dirs are created implicitly when a file is created inside them
-    alert("Create a file inside the folder to create the folder.");
-  }, []);
-
-  const handleVaultRename = useCallback(async (path: string, newName: string) => {
-    const res = await renameFile(path, newName);
-    await reloadVault();
-    if (selectedFile === path) setSelectedFile(res.path);
-  }, [reloadVault, selectedFile]);
-
-  const handleVaultDelete = useCallback(async (path: string) => {
-    await deleteFile(path);
-    await reloadVault();
-    if (selectedFile === path) setSelectedFile(null);
-  }, [reloadVault, selectedFile]);
-
-  // ── Local folder mode ────────────────────────────────────────────────────────
   const local = useLocalFolder();
 
-  const handleLocalNewFile = useCallback(async (parentDir: string | null, name: string) => {
+  const handleNewFile = useCallback(async (parentDir: string | null, name: string) => {
     const filePath = await local.createFile(parentDir, name, DEFAULT_MD(name));
     await local.reload();
     setSelectedFile(filePath);
   }, [local]);
 
-  const handleLocalNewDir = useCallback(async (parentDir: string | null, name: string) => {
+  const handleNewDir = useCallback(async (parentDir: string | null, name: string) => {
     await local.createDir(parentDir, name);
     await local.reload();
   }, [local]);
 
-  const handleLocalRename = useCallback(async (oldPath: string, newName: string) => {
+  const handleRename = useCallback(async (oldPath: string, newName: string) => {
     const newPath = await local.renameEntry(oldPath, newName);
     await local.reload();
     if (selectedFile === oldPath) setSelectedFile(newPath);
   }, [local, selectedFile]);
 
-  const handleLocalDelete = useCallback(async (path: string) => {
+  const handleDelete = useCallback(async (path: string) => {
     await local.deleteEntry(path);
     await local.reload();
     if (selectedFile === path) setSelectedFile(null);
   }, [local, selectedFile]);
 
-  const handleOpenFolder = useCallback(async () => {
-    await local.openFolder();
-    setMode("local");
-    setSelectedFile(null);
-  }, [local]);
-
-  const handleCloseFolder = useCallback(() => {
-    local.closeFolder();
-    setMode("vault");
-    setSelectedFile(null);
-  }, [local]);
-
-  // ── Active mode values ───────────────────────────────────────────────────────
-  const isLocal = mode === "local";
-  const tree = isLocal ? local.tree : vaultTree;
-  const reload = isLocal ? local.reload : reloadVault;
-
-  const fileOps: FileOps | undefined = isLocal
-    ? { read: local.readFile, write: local.writeFile }
-    : undefined;
-
-  // ── Move handler (called by FileTree DnD) ───────────────────────────────────
-  const handleLocalMove = useCallback(async (sourcePaths: string[], targetDir: string | null) => {
+  const handleMove = useCallback(async (sourcePaths: string[], targetDir: string | null) => {
     const pathMap: Record<string, string> = {};
     for (const src of sourcePaths) {
       const newPath = await local.moveEntryToDir(src, targetDir);
@@ -100,31 +46,14 @@ export default function App() {
     if (selectedFile && pathMap[selectedFile]) setSelectedFile(pathMap[selectedFile]);
   }, [local, selectedFile]);
 
-  const handleVaultMove = useCallback(async (sourcePaths: string[], targetDir: string | null) => {
-    const pathMap: Record<string, string> = {};
-    for (const src of sourcePaths) {
-      const res = await moveEntry(src, targetDir);
-      pathMap[src] = res.path;
-    }
-    await reloadVault();
-    if (selectedFile && pathMap[selectedFile]) setSelectedFile(pathMap[selectedFile]);
-  }, [reloadVault, selectedFile]);
+  const handleOpenFolder = useCallback(async () => {
+    await local.openFolder();
+    setSelectedFile(null);
+  }, [local]);
 
-  const treeActions = isLocal
-    ? {
-        onNewFile: handleLocalNewFile,
-        onNewDir: handleLocalNewDir,
-        onRename: handleLocalRename,
-        onDelete: handleLocalDelete,
-        onMove: handleLocalMove,
-      }
-    : {
-        onNewFile: handleVaultNewFile,
-        onNewDir: handleVaultNewDir,
-        onRename: handleVaultRename,
-        onDelete: handleVaultDelete,
-        onMove: handleVaultMove,
-      };
+  const fileOps: FileOps = { read: local.readFile, write: local.writeFile };
+
+  const folderOpen = local.isOpen;
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui, sans-serif" }}>
@@ -151,50 +80,24 @@ export default function App() {
           {/* Title row */}
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: "#333", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {isLocal ? `📂 ${local.folderName}` : "Vault"}
-            </span>
-            <span
-              style={{
-                fontSize: 9,
-                padding: "1px 5px",
-                borderRadius: 8,
-                background: isLocal ? "#d1fae5" : "#e0e7ff",
-                color: isLocal ? "#065f46" : "#3730a3",
-                fontWeight: 600,
-                flexShrink: 0,
-              }}
-            >
-              {isLocal ? "LOCAL" : "VAULT"}
+              {folderOpen ? `📂 ${local.folderName}` : "No folder open"}
             </span>
           </div>
 
           {/* Action row */}
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {!isLocal && (
-              <SidebarBtn
-                onClick={handleOpenFolder}
-                title="Open a local folder (File System Access API)"
-              >
-                📂 Open Folder
-              </SidebarBtn>
-            )}
-            {isLocal && (
+            <SidebarBtn onClick={handleOpenFolder} title="Open a local folder (File System Access API)">
+              📂 Open Folder
+            </SidebarBtn>
+            {folderOpen && (
               <>
-                <SidebarBtn onClick={handleCloseFolder} title="Return to vault">
-                  ← Vault
-                </SidebarBtn>
-                <SidebarBtn onClick={() => handleLocalNewFile(null, "untitled.md")} title="New file at root">
+                <SidebarBtn onClick={() => handleNewFile(null, "untitled.md")} title="New file at root">
                   +📄
                 </SidebarBtn>
-                <SidebarBtn onClick={() => handleLocalNewDir(null, "new-folder")} title="New folder at root">
+                <SidebarBtn onClick={() => handleNewDir(null, "new-folder")} title="New folder at root">
                   +📁
                 </SidebarBtn>
               </>
-            )}
-            {!isLocal && (
-              <SidebarBtn onClick={() => handleVaultNewFile(null, "untitled.md")} title="New file in vault root">
-                +📄
-              </SidebarBtn>
             )}
           </div>
         </div>
@@ -202,10 +105,14 @@ export default function App() {
         {/* Tree */}
         <div style={{ flex: 1, overflow: "auto" }}>
           <FileTree
-            tree={tree}
+            tree={local.tree}
             selectedFile={selectedFile}
             onSelect={setSelectedFile}
-            {...treeActions}
+            onNewFile={handleNewFile}
+            onNewDir={handleNewDir}
+            onRename={handleRename}
+            onDelete={handleDelete}
+            onMove={handleMove}
           />
         </div>
       </aside>
@@ -216,11 +123,11 @@ export default function App() {
           <DocEditor
             key={selectedFile}
             filePath={selectedFile}
-            onSaveSuccess={reload}
+            onSaveSuccess={local.reload}
             fileOps={fileOps}
           />
         ) : (
-          <EmptyState isLocal={isLocal} onOpenFolder={handleOpenFolder} />
+          <EmptyState folderOpen={folderOpen} onOpenFolder={handleOpenFolder} />
         )}
       </main>
     </div>
@@ -265,10 +172,10 @@ function SidebarBtn({
 }
 
 function EmptyState({
-  isLocal,
+  folderOpen,
   onOpenFolder,
 }: {
-  isLocal: boolean;
+  folderOpen: boolean;
   onOpenFolder: () => void;
 }) {
   return (
@@ -283,9 +190,11 @@ function EmptyState({
         gap: 12,
       }}
     >
-      <div style={{ fontSize: 48 }}>{isLocal ? "📂" : "D"}</div>
-      <div style={{ fontSize: 14 }}>Select a document from the sidebar</div>
-      {!isLocal && (
+      <div style={{ fontSize: 48 }}>📂</div>
+      <div style={{ fontSize: 14 }}>
+        {folderOpen ? "Select a document from the sidebar" : "Open a local folder to get started"}
+      </div>
+      {!folderOpen && (
         <button
           onClick={onOpenFolder}
           style={{
