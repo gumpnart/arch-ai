@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as PocRouteImport } from './routes/poc'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ApiFilesRouteImport } from './routes/api/files'
 import { Route as ApiKrokiRenderRouteImport } from './routes/api/kroki/render'
 
 const PocRoute = PocRouteImport.update({
@@ -30,11 +29,6 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiFilesRoute = ApiFilesRouteImport.update({
-  id: '/api/files',
-  path: '/api/files',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiKrokiRenderRoute = ApiKrokiRenderRouteImport.update({
   id: '/api/kroki/render',
   path: '/api/kroki/render',
@@ -44,14 +38,12 @@ const ApiKrokiRenderRoute = ApiKrokiRenderRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/poc': typeof PocRoute
-  '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/poc': typeof PocRoute
-  '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
 }
@@ -59,28 +51,20 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/poc': typeof PocRoute
-  '/api/files': typeof ApiFilesRoute
   '/api/health': typeof ApiHealthRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/poc' | '/api/files' | '/api/health' | '/api/kroki/render'
+  fullPaths: '/' | '/poc' | '/api/health' | '/api/kroki/render'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/poc' | '/api/files' | '/api/health' | '/api/kroki/render'
-  id:
-    | '__root__'
-    | '/'
-    | '/poc'
-    | '/api/files'
-    | '/api/health'
-    | '/api/kroki/render'
+  to: '/' | '/poc' | '/api/health' | '/api/kroki/render'
+  id: '__root__' | '/' | '/poc' | '/api/health' | '/api/kroki/render'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   PocRoute: typeof PocRoute
-  ApiFilesRoute: typeof ApiFilesRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiKrokiRenderRoute: typeof ApiKrokiRenderRoute
 }
@@ -108,13 +92,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/files': {
-      id: '/api/files'
-      path: '/api/files'
-      fullPath: '/api/files'
-      preLoaderRoute: typeof ApiFilesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/kroki/render': {
       id: '/api/kroki/render'
       path: '/api/kroki/render'
@@ -128,7 +105,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   PocRoute: PocRoute,
-  ApiFilesRoute: ApiFilesRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiKrokiRenderRoute: ApiKrokiRenderRoute,
 }
