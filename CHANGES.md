@@ -1,5 +1,17 @@
 # Change Log
 
+## 2026-05-17 — fix: BlockNote slash menu transparent background
+
+### Overview
+
+Fixed the `/`-triggered block insertion menu in the `web/` BlockNote editor rendering with a transparent background. The root cause was a Tailwind v4 compatibility gap: `@blocknote/shadcn` renders the suggestion menu with utility classes like `bg-popover` and `text-popover-foreground`, which in Tailwind v4 require theme tokens registered in an `@theme { --color-* }` block — plain `:root` CSS variables are not picked up by the utility generator.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/index.css` | Added `@theme` block defining all shadcn color tokens (`--color-popover`, `--color-background`, `--color-foreground`, etc.) in Tailwind v4 format so that `bg-popover` and related utilities resolve to solid colors instead of being undefined/transparent. |
+
 ## 2026-05-17 — refactor: remove server file loading, local filesystem only
 
 ### Overview
