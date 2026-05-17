@@ -52,12 +52,28 @@ cd arch-doc-mcp && npm install && npm run build
 cd kroki && docker compose up -d
 
 # 3. Start web editor
-cd web && VAULT_PATH=../vault npm run dev
-# → http://localhost:5173
+cd web && VAULT_PATH=../vault pnpm run dev
+# → http://localhost:3000
 
 # 4. Run tests
 cd arch-doc-mcp && npm test
 ```
+
+### Web Editor — Local Folder Mode
+
+The web editor supports two modes:
+
+| Mode | How to activate | File I/O |
+|---|---|---|
+| **Vault** (default) | — | Server API (`/api/files`) reads/writes `VAULT_PATH` |
+| **Local Folder** | Click "📂 Open Folder" in the sidebar | [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API) — no server round-trip |
+
+**Local folder features** (VS Code-style):
+- Browse any folder from your machine — markdown files shown in the tree
+- Hover a file → ✏️ rename or 🗑️ delete (inline input, no modal)
+- Hover a folder → +📄 new file or +📁 new subfolder
+- Ctrl+S saves directly to disk via `FileSystemFileHandle.createWritable()`
+- Click "← Vault" to return to vault mode
 
 ### MCP Config (Claude Code CLI)
 

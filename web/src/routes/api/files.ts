@@ -101,6 +101,42 @@ export const Route = createFileRoute("/api/files")({
           return Response.json({ error: String(err) }, { status: 500 });
         }
       },
+      PATCH: async ({ request }) => {
+        const relPath = new URL(request.url).searchParams.get("path");
+        if (!relPath)
+          return Response.json({ error: "path required" }, { status: 400 });
+        const filePath = resolveFilePath(relPath);
+        if (!filePath)
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        const { newName } = (await request.json()) as { newName: string };
+        if (!newName)
+          return Response.json({ error: "newName required" }, { status: 400 });
+        const newFilePath = path.resolve(path.dirname(filePath), newName);
+        if (!newFilePath.startsWith(VAULT_PATH))
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        if (!newFilePath.endsWith(".md"))
+          return Response.json({ error: "Only .md files allowed" }, { status: 400 });
+        try {
+          await fs.rename(filePath, newFilePath);
+          return Response.json({ ok: true, path: path.relative(VAULT_PATH, newFilePath) });
+        } catch (err) {
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
+      },
+      DELETE: async ({ request }) => {
+        const relPath = new URL(request.url).searchParams.get("path");
+        if (!relPath)
+          return Response.json({ error: "path required" }, { status: 400 });
+        const filePath = resolveFilePath(relPath);
+        if (!filePath)
+          return Response.json({ error: "Forbidden" }, { status: 403 });
+        try {
+          await fs.unlink(filePath);
+          return Response.json({ ok: true });
+        } catch (err) {
+          return Response.json({ error: String(err) }, { status: 500 });
+        }
+      },
     },
   },
 });
