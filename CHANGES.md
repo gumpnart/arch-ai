@@ -1,5 +1,42 @@
 # Change Log
 
+## 2026-05-19 — feat: template picker in arch-doc-web
+
+### Overview
+
+Added a "📋 Template" button to the arch-doc-web sidebar. Clicking it opens a modal where the user selects one of three built-in templates, types a project name, previews the files to be created, and clicks "Create →". All scaffold files are written directly to the local folder via the File System Access API — no server or MCP required.
+
+### Templates
+
+| Template | Description |
+|---|---|
+| **Architecture Project** | Full SA scaffold: SAD, ADRs, per-folder READMEs, Mermaid starters |
+| **API Service** | Auth sequence, state machine, component diagram, design decisions log |
+| **ADR Collection** | Lightweight ADR log with index README and starter template |
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/templates/index.ts` | New — 3 template definitions with `scaffold(name, date)` functions returning `Record<filePath, content>` |
+| `web/src/components/TemplateModal/TemplateModal.tsx` | New — two-column modal: template card list + name input + file preview + Create button |
+| `web/src/App.tsx` | Added `templateModalOpen` state, `handleNewFromTemplate` handler, `📋 Template` sidebar button, and `<TemplateModal>` render |
+| `README.md` | Documented template picker feature |
+
+## 2026-05-19 — feat: rich init_project scaffolding with starter templates
+
+### Overview
+
+Enhanced `initProject()` in `mcp-server/src/vault.ts` to generate a comprehensive set of starter files when a blank project is initialized. Previously only 5 empty folders and a bare README were created. Now each new project gets 8 rich template files that immediately guide the user on document structure, conventions, and next steps.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `mcp-server/src/vault.ts` | Added 5 per-folder README constants (`ARCH_README`, `FLOWS_README`, `SEQ_README`, `INFRA_README`, `NOTES_README`), `buildSadTemplate()`, `buildAdrTemplate()` functions; enhanced `initProject()` to write rich root README with Quick Start + Folder Guide + Lifecycle + Conventions sections, per-folder READMEs, `Architecture/SAD-template.md`, and `Architecture/ADR/ADR-000-template.md` |
+| `README.md` | Updated `init_project` tool description |
+| `CLAUDE.md` | Updated `init_project` tool description |
+
 ## 2026-05-18 — feat: universal content search (Ctrl+Shift+F)
 
 ### Overview

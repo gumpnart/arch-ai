@@ -73,6 +73,7 @@ The web editor supports two modes:
 - **Drag & drop** files or folders to move them; drop on a dir or the root zone
 - **Multi-select** with Ctrl/Cmd+Click → drag all selected items together
 - Ctrl+S saves directly to disk via `FileSystemFileHandle.createWritable()`
+- **Template picker** — click `📋 Template` in the sidebar to choose a built-in template (Architecture Project, API Service, ADR Collection) and scaffold a full project folder with one click; no server or MCP required
 - **Command palette** — press `Ctrl+P` (or click the top bar) to fuzzy-search files by name or content
 - **Universal content search** — press `Ctrl+Shift+F` (or click the 🔍 tab in the sidebar) to search across all file contents; results are grouped by file with highlighted line excerpts; supports case-sensitive, whole-word, and regex modes
 - **File history navigation** — `Alt+←` / `Alt+→` (or the ← → buttons in the top bar) navigate back and forward through recently opened files
@@ -100,7 +101,7 @@ MCP Tools
   delete_diagram      ──►  Delete a diagram
   list_formats        ──►  All Kroki-supported formats
   create_document     ──►  Structured .md with optional diagram embeds
-  init_project        ──►  Scaffold vault folder structure + git
+  init_project        ──►  Scaffold vault folders + rich starter templates (README, per-folder READMEs, SAD template, ADR template)
   git_status          ──►  Branch, remote, changed files
   git_commit          ──►  Add + commit + push
 

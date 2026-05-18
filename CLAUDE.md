@@ -123,7 +123,7 @@ software-arch-ai/
 
 | Tool | Description |
 |---|---|
-| `init_project` | Scaffold a new Obsidian vault at `VAULT_PATH/<name>/` — folders, README, `.obsidian/app.json`, `.gitignore`, initial git commit |
+| `init_project` | Scaffold a new Obsidian vault at `VAULT_PATH/<name>/` — folders, rich README (Quick Start + Folder Guide + Lifecycle + Conventions), per-folder READMEs, `Architecture/SAD-template.md`, `Architecture/ADR/ADR-000-template.md`, `.obsidian/app.json`, `.gitignore` |
 | `create_document` | **Primary document tool** — creates a structured `.md` with sections; each section can embed a diagram (reads diagram `.md` and auto-inserts correct Obsidian embed) |
 | `create_eraser_diagram` | Render diagram via Eraser.io API → PNG saved to `Assets/`; `.md` with `![[…]]` embed; optionally also push to Excalidraw scene. Requires `ERASER_API_KEY` |
 

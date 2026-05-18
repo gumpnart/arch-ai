@@ -5,6 +5,7 @@ import { NavBar } from "./components/NavBar/NavBar.js";
 import { SearchPalette } from "./components/Search/SearchPalette.js";
 import { ContentSearchPanel } from "./components/Search/ContentSearchPanel.js";
 import { OpenEditors } from "./components/Sidebar/OpenEditors.js";
+import { TemplateModal } from "./components/TemplateModal/TemplateModal.js";
 import { useLocalFolder } from "./hooks/useLocalFolder.js";
 import { useFileHistory } from "./hooks/useFileHistory.js";
 import { useOpenEditors } from "./hooks/useOpenEditors.js";
@@ -20,6 +21,7 @@ type SidebarView = "explorer" | "search";
 export default function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<SidebarView>("explorer");
   const local = useLocalFolder();
   const history = useFileHistory();
@@ -93,6 +95,16 @@ export default function App() {
   const handleNewDir = useCallback(
     async (parentDir: string | null, name: string) => {
       await local.createDir(parentDir, name);
+      await local.reload();
+    },
+    [local]
+  );
+
+  const handleNewFromTemplate = useCallback(
+    async (files: Record<string, string>, projectName: string, location: "subfolder" | "current") => {
+      for (const [relativePath, content] of Object.entries(files)) {
+        await local.createFile(location === "subfolder" ? projectName : null, relativePath, content);
+      }
       await local.reload();
     },
     [local]
@@ -256,6 +268,12 @@ export default function App() {
                       +📁
                     </SidebarBtn>
                     <SidebarBtn
+                      onClick={() => setTemplateModalOpen(true)}
+                      title="New project from template"
+                    >
+                      📋 Template
+                    </SidebarBtn>
+                    <SidebarBtn
                       onClick={() => setPaletteOpen(true)}
                       title="Quick open (Ctrl+P)"
                     >
@@ -336,6 +354,13 @@ export default function App() {
           readFile={local.readFile}
         />
       )}
+
+      {/* ── Template modal ──────────────────────────────────────────────────── */}
+      <TemplateModal
+        open={templateModalOpen}
+        onClose={() => setTemplateModalOpen(false)}
+        onConfirm={handleNewFromTemplate}
+      />
     </div>
   );
 }
