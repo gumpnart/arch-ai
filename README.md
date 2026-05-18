@@ -73,7 +73,10 @@ The web editor supports two modes:
 - **Drag & drop** files or folders to move them; drop on a dir or the root zone
 - **Multi-select** with Ctrl/Cmd+Click → drag all selected items together
 - Ctrl+S saves directly to disk via `FileSystemFileHandle.createWritable()`
-- Click "← Vault" to return to vault mode
+- **Command palette** — press `Ctrl+P` (or click the top bar) to fuzzy-search files by name or content
+- **Universal content search** — press `Ctrl+Shift+F` (or click the 🔍 tab in the sidebar) to search across all file contents; results are grouped by file with highlighted line excerpts; supports case-sensitive, whole-word, and regex modes
+- **File history navigation** — `Alt+←` / `Alt+→` (or the ← → buttons in the top bar) navigate back and forward through recently opened files
+- **Open Editors panel** — collapsible section at the top of the sidebar listing all files opened in the current session; click ✕ to remove a file from the list
 
 > Drag-and-drop and inline CRUD actions (rename, delete, new file, new folder) also work in **vault mode** via the server API.
 
