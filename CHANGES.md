@@ -1,5 +1,44 @@
 # Change Log
 
+## 2026-05-18 — feat: universal content search (Ctrl+Shift+F)
+
+### Overview
+
+Added a VS Code-style full-text content search panel to the `web/` editor. Activated with `Ctrl+Shift+F` or by clicking the 🔍 tab in the sidebar header, it reads all markdown files in the opened folder (in parallel batches of 8) and returns results grouped by file with line numbers, trimmed line excerpts, and highlighted match positions. A progress bar tracks indexing across large folders. Supports case-sensitive, whole-word, and regex search options. Clicking any result opens the corresponding file.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/hooks/useContentSearch.ts` | New hook — progressive file reader + line-level regex search; aborts in-flight searches on new query; batched async reads |
+| `web/src/components/Search/ContentSearchPanel.tsx` | New component — search input with `[Aa]` / `[ab\|]` / `[.*]` option toggles, progress bar, results grouped by collapsible file headers with match count badges and highlighted line excerpts |
+| `web/src/App.tsx` | Added `sidebarView: "explorer" \| "search"` state; added `Ctrl+Shift+F` keyboard shortcut; sidebar header now has 📁/🔍 view-toggle tabs; renders `ContentSearchPanel` in search view |
+| `README.md` | Documented content search feature |
+
+## 2026-05-18 — feat: file navigation (command palette, history, open editors)
+
+### Overview
+
+Added three interconnected VS Code-style file navigation features to the `web/` editor:
+
+1. **Command palette** (`Ctrl+P`) — a dark floating modal with fuzzy full-text file search powered by MiniSearch. Shows recently opened files when the query is empty; match terms are highlighted in yellow. Keyboard-navigable (↑↓ Enter Esc).
+2. **Navigation history** (`Alt+←` / `Alt+→`) — back/forward navigation through file visit history. The dark top navigation bar exposes ← → buttons that enable/disable based on history position. Clicking the breadcrumb area or the 🔍 icon also opens the command palette.
+3. **Open Editors panel** — collapsible sidebar section listing all files opened in the session (most recently active last). Each row has a hover-revealed ✕ close button. Collapse state is persisted to `localStorage`.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/hooks/useFileHistory.ts` | New hook — back/forward file navigation history (capped at 100 entries) |
+| `web/src/hooks/useOpenEditors.ts` | New hook — tracks set of open files, ordered by recency (max 20) |
+| `web/src/hooks/useFileSearch.ts` | New hook — MiniSearch wrapper; indexes filename + path + lazily-loaded content |
+| `web/src/components/NavBar/NavBar.tsx` | New component — dark top bar with ← → nav buttons and clickable breadcrumb |
+| `web/src/components/Search/SearchPalette.tsx` | New component — VS Code-style command palette modal with result highlighting |
+| `web/src/components/Sidebar/OpenEditors.tsx` | New component — collapsible Open Editors panel for sidebar |
+| `web/src/App.tsx` | Restructured layout (NavBar above sidebar+editor row); added `openFile()` central handler; wired all new hooks; added global keyboard shortcut handler (Ctrl+P, Alt+←/→); updated empty-state tip text |
+| `web/package.json` | Added `minisearch@7.2.0` |
+| `README.md` | Documented new navigation features |
+
 ## 2026-05-17 — fix: BlockNote slash menu transparent background
 
 ### Overview
