@@ -276,7 +276,7 @@ export const MermaidBlock = createReactBlockSpec(
       // ── Render ────────────────────────────────────────────────────────────────
 
       return (
-        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", margin: "8px 0" }}>
+        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", margin: "8px 0", width: "100%" }}>
           {/* Toolbar */}
           <div
             style={{
