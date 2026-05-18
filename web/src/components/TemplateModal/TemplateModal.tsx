@@ -1,0 +1,312 @@
+import { useState, useEffect, useRef } from "react";
+import { TEMPLATES, isoDate } from "../../templates/index.js";
+import type { Template } from "../../templates/index.js";
+
+interface TemplateModalProps {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (files: Record<string, string>, projectName: string) => Promise<void>;
+}
+
+export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) {
+  const [selectedId, setSelectedId] = useState<string>(TEMPLATES[0].id);
+  const [projectName, setProjectName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = TEMPLATES.find((t) => t.id === selectedId) ?? TEMPLATES[0];
+
+  useEffect(() => {
+    if (open) {
+      setProjectName("");
+      setError(null);
+      setCreating(false);
+      setSelectedId(TEMPLATES[0].id);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && !creating) handleCreate();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, creating, projectName, selectedId]);
+
+  const previewFiles = Object.keys(selected.scaffold(projectName.trim() || "project-name", isoDate()));
+
+  async function handleCreate() {
+    const name = projectName.trim();
+    if (!name) { setError("Project name is required."); return; }
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
+      setError("Use only letters, numbers, hyphens, underscores, and dots.");
+      return;
+    }
+    setError(null);
+    setCreating(true);
+    try {
+      const files = selected.scaffold(name, isoDate());
+      await onConfirm(files, name);
+      onClose();
+    } catch (err) {
+      setError((err as Error).message ?? "Failed to create files.");
+      setCreating(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)",
+          zIndex: 1000,
+        }}
+      />
+
+      {/* Modal */}
+      <div
+        style={{
+          position: "fixed",
+          top: "10%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 1001,
+          background: "#fff",
+          borderRadius: 10,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.22)",
+          width: 680,
+          maxWidth: "92vw",
+          maxHeight: "80vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        {/* Header */}
+        <div
+          style={{
+            padding: "16px 20px 12px",
+            borderBottom: "1px solid #e8e8e8",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a" }}>
+            New from Template
+          </span>
+          <button
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 18,
+              color: "#888",
+              padding: "0 4px",
+              lineHeight: 1,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Body — two columns */}
+        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+          {/* Left — template list */}
+          <div
+            style={{
+              width: 220,
+              borderRight: "1px solid #e8e8e8",
+              overflowY: "auto",
+              padding: "10px 8px",
+              flexShrink: 0,
+            }}
+          >
+            {TEMPLATES.map((t) => (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                selected={t.id === selectedId}
+                onClick={() => setSelectedId(t.id)}
+              />
+            ))}
+          </div>
+
+          {/* Right — name input + file preview */}
+          <div
+            style={{
+              flex: 1,
+              padding: "16px 20px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            {/* Selected template info */}
+            <div>
+              <div style={{ fontSize: 22, marginBottom: 4 }}>{selected.icon}</div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: "#1a1a1a", marginBottom: 4 }}>
+                {selected.name}
+              </div>
+              <div style={{ fontSize: 12, color: "#666", lineHeight: 1.5 }}>
+                {selected.description}
+              </div>
+            </div>
+
+            {/* Project name */}
+            <div>
+              <label
+                style={{ fontSize: 12, fontWeight: 600, color: "#444", display: "block", marginBottom: 5 }}
+              >
+                Project name
+              </label>
+              <input
+                ref={inputRef}
+                value={projectName}
+                onChange={(e) => { setProjectName(e.target.value); setError(null); }}
+                placeholder="my-project"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "7px 10px",
+                  border: error ? "1.5px solid #d93025" : "1.5px solid #d0d0d0",
+                  borderRadius: 6,
+                  fontSize: 13,
+                  fontFamily: "monospace",
+                  outline: "none",
+                  background: "#fafafa",
+                }}
+              />
+              {error && (
+                <div style={{ fontSize: 11, color: "#d93025", marginTop: 4 }}>{error}</div>
+              )}
+            </div>
+
+            {/* File preview */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#444", marginBottom: 6 }}>
+                Files to be created ({previewFiles.length})
+              </div>
+              <div
+                style={{
+                  background: "#f5f5f5",
+                  borderRadius: 6,
+                  padding: "8px 12px",
+                  maxHeight: 180,
+                  overflowY: "auto",
+                }}
+              >
+                {previewFiles.map((f) => (
+                  <div
+                    key={f}
+                    style={{
+                      fontSize: 11,
+                      fontFamily: "monospace",
+                      color: "#444",
+                      padding: "2px 0",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    📄 {projectName.trim() || "<name>"}/{f}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div
+          style={{
+            padding: "12px 20px",
+            borderTop: "1px solid #e8e8e8",
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={onClose}
+            style={{
+              padding: "7px 16px",
+              border: "1.5px solid #d0d0d0",
+              borderRadius: 6,
+              background: "#fff",
+              cursor: "pointer",
+              fontSize: 13,
+              color: "#444",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={creating || !projectName.trim()}
+            style={{
+              padding: "7px 18px",
+              border: "none",
+              borderRadius: 6,
+              background: creating || !projectName.trim() ? "#b0c4de" : "#1a73e8",
+              color: "#fff",
+              cursor: creating || !projectName.trim() ? "default" : "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {creating ? "Creating…" : "Create →"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TemplateCard({
+  template,
+  selected,
+  onClick,
+}: {
+  template: Template;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: "10px 12px",
+        borderRadius: 7,
+        cursor: "pointer",
+        background: selected ? "#e8f0fe" : "transparent",
+        border: selected ? "1.5px solid #1a73e8" : "1.5px solid transparent",
+        marginBottom: 4,
+        transition: "background 0.1s",
+      }}
+    >
+      <div style={{ fontSize: 18, marginBottom: 3 }}>{template.icon}</div>
+      <div style={{ fontWeight: 600, fontSize: 12, color: selected ? "#1a73e8" : "#1a1a1a" }}>
+        {template.name}
+      </div>
+      <div style={{ fontSize: 11, color: "#777", marginTop: 2, lineHeight: 1.4 }}>
+        {template.description.split(".")[0]}.
+      </div>
+    </div>
+  );
+}

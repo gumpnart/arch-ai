@@ -1,5 +1,28 @@
 # Change Log
 
+## 2026-05-19 — feat: template picker in arch-doc-web
+
+### Overview
+
+Added a "📋 Template" button to the arch-doc-web sidebar. Clicking it opens a modal where the user selects one of three built-in templates, types a project name, previews the files to be created, and clicks "Create →". All scaffold files are written directly to the local folder via the File System Access API — no server or MCP required.
+
+### Templates
+
+| Template | Description |
+|---|---|
+| **Architecture Project** | Full SA scaffold: SAD, ADRs, per-folder READMEs, Mermaid starters |
+| **API Service** | Auth sequence, state machine, component diagram, design decisions log |
+| **ADR Collection** | Lightweight ADR log with index README and starter template |
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/templates/index.ts` | New — 3 template definitions with `scaffold(name, date)` functions returning `Record<filePath, content>` |
+| `web/src/components/TemplateModal/TemplateModal.tsx` | New — two-column modal: template card list + name input + file preview + Create button |
+| `web/src/App.tsx` | Added `templateModalOpen` state, `handleNewFromTemplate` handler, `📋 Template` sidebar button, and `<TemplateModal>` render |
+| `README.md` | Documented template picker feature |
+
 ## 2026-05-19 — feat: rich init_project scaffolding with starter templates
 
 ### Overview
