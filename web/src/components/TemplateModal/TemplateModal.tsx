@@ -2,15 +2,18 @@ import { useState, useEffect, useRef } from "react";
 import { TEMPLATES, isoDate } from "../../templates/index.js";
 import type { Template } from "../../templates/index.js";
 
+type Location = "subfolder" | "current";
+
 interface TemplateModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (files: Record<string, string>, projectName: string) => Promise<void>;
+  onConfirm: (files: Record<string, string>, projectName: string, location: Location) => Promise<void>;
 }
 
 export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) {
   const [selectedId, setSelectedId] = useState<string>(TEMPLATES[0].id);
   const [projectName, setProjectName] = useState("");
+  const [location, setLocation] = useState<Location>("subfolder");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +26,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
       setError(null);
       setCreating(false);
       setSelectedId(TEMPLATES[0].id);
+      setLocation("subfolder");
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -35,13 +39,17 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [open, creating, projectName, selectedId]);
+  }, [open, creating, projectName, selectedId, location]);
 
-  const previewFiles = Object.keys(selected.scaffold(projectName.trim() || "project-name", isoDate()));
+  const previewName = projectName.trim() || (location === "subfolder" ? "my-project" : "project-name");
+  const previewFiles = Object.keys(selected.scaffold(previewName, isoDate()));
 
   async function handleCreate() {
     const name = projectName.trim();
-    if (!name) { setError("Project name is required."); return; }
+    if (!name) {
+      setError(location === "subfolder" ? "Folder name is required." : "Project name is required.");
+      return;
+    }
     if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
       setError("Use only letters, numbers, hyphens, underscores, and dots.");
       return;
@@ -50,7 +58,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
     setCreating(true);
     try {
       const files = selected.scaffold(name, isoDate());
-      await onConfirm(files, name);
+      await onConfirm(files, name, location);
       onClose();
     } catch (err) {
       setError((err as Error).message ?? "Failed to create files.");
@@ -167,18 +175,41 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
               </div>
             </div>
 
-            {/* Project name */}
+            {/* Location picker */}
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#444", marginBottom: 7 }}>
+                Where to create
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <LocationOption
+                  active={location === "subfolder"}
+                  onClick={() => setLocation("subfolder")}
+                  icon="📁"
+                  label="New subfolder"
+                  hint="Creates a new folder with the project name"
+                />
+                <LocationOption
+                  active={location === "current"}
+                  onClick={() => setLocation("current")}
+                  icon="📂"
+                  label="Current directory"
+                  hint="Places files directly in the opened folder"
+                />
+              </div>
+            </div>
+
+            {/* Project / folder name */}
             <div>
               <label
                 style={{ fontSize: 12, fontWeight: 600, color: "#444", display: "block", marginBottom: 5 }}
               >
-                Project name
+                {location === "subfolder" ? "Folder name" : "Project name"}
               </label>
               <input
                 ref={inputRef}
                 value={projectName}
                 onChange={(e) => { setProjectName(e.target.value); setError(null); }}
-                placeholder="my-project"
+                placeholder={location === "subfolder" ? "my-project" : "project-name"}
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
@@ -193,6 +224,11 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
               />
               {error && (
                 <div style={{ fontSize: 11, color: "#d93025", marginTop: 4 }}>{error}</div>
+              )}
+              {location === "current" && (
+                <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>
+                  Used as the project title in document content only — no folder will be created.
+                </div>
               )}
             </div>
 
@@ -223,7 +259,9 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                       textOverflow: "ellipsis",
                     }}
                   >
-                    📄 {projectName.trim() || "<name>"}/{f}
+                    📄 {location === "subfolder"
+                      ? `${projectName.trim() || "<name>"}/${f}`
+                      : f}
                   </div>
                 ))}
               </div>
@@ -275,6 +313,41 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
         </div>
       </div>
     </>
+  );
+}
+
+function LocationOption({
+  active,
+  onClick,
+  icon,
+  label,
+  hint,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: string;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        flex: 1,
+        padding: "9px 12px",
+        borderRadius: 7,
+        cursor: "pointer",
+        border: active ? "1.5px solid #1a73e8" : "1.5px solid #d0d0d0",
+        background: active ? "#e8f0fe" : "#fafafa",
+        transition: "border-color 0.1s, background 0.1s",
+      }}
+    >
+      <div style={{ fontSize: 16, marginBottom: 3 }}>{icon}</div>
+      <div style={{ fontWeight: 600, fontSize: 12, color: active ? "#1a73e8" : "#1a1a1a" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 11, color: "#888", marginTop: 2, lineHeight: 1.35 }}>{hint}</div>
+    </div>
   );
 }
 

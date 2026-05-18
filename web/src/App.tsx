@@ -101,9 +101,9 @@ export default function App() {
   );
 
   const handleNewFromTemplate = useCallback(
-    async (files: Record<string, string>, projectName: string) => {
+    async (files: Record<string, string>, projectName: string, location: "subfolder" | "current") => {
       for (const [relativePath, content] of Object.entries(files)) {
-        await local.createFile(projectName, relativePath, content);
+        await local.createFile(location === "subfolder" ? projectName : null, relativePath, content);
       }
       await local.reload();
     },
