@@ -100,7 +100,7 @@ MCP Tools
   delete_diagram      ──►  Delete a diagram
   list_formats        ──►  All Kroki-supported formats
   create_document     ──►  Structured .md with optional diagram embeds
-  init_project        ──►  Scaffold vault folder structure + git
+  init_project        ──►  Scaffold vault folders + rich starter templates (README, per-folder READMEs, SAD template, ADR template)
   git_status          ──►  Branch, remote, changed files
   git_commit          ──►  Add + commit + push
 

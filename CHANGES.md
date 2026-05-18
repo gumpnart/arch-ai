@@ -1,5 +1,19 @@
 # Change Log
 
+## 2026-05-19 — feat: rich init_project scaffolding with starter templates
+
+### Overview
+
+Enhanced `initProject()` in `mcp-server/src/vault.ts` to generate a comprehensive set of starter files when a blank project is initialized. Previously only 5 empty folders and a bare README were created. Now each new project gets 8 rich template files that immediately guide the user on document structure, conventions, and next steps.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `mcp-server/src/vault.ts` | Added 5 per-folder README constants (`ARCH_README`, `FLOWS_README`, `SEQ_README`, `INFRA_README`, `NOTES_README`), `buildSadTemplate()`, `buildAdrTemplate()` functions; enhanced `initProject()` to write rich root README with Quick Start + Folder Guide + Lifecycle + Conventions sections, per-folder READMEs, `Architecture/SAD-template.md`, and `Architecture/ADR/ADR-000-template.md` |
+| `README.md` | Updated `init_project` tool description |
+| `CLAUDE.md` | Updated `init_project` tool description |
+
 ## 2026-05-18 — feat: universal content search (Ctrl+Shift+F)
 
 ### Overview
