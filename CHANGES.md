@@ -1,5 +1,33 @@
 # Change Log
 
+## 2026-05-19 — feat: AI writing assistant block in arch-doc-web
+
+### Overview
+
+Added an AI writing assistant as a custom BlockNote block in the `web/` editor. Users invoke it via the `/AI Assistant` slash command. It streams responses from the **Gemini API** (Gemma 4, `gemma-4-31b-it`) with automatic fallback to a local **Ollama** Docker container (Gemma 4 2B). Stable project documents (`status: stable`) can be optionally included as context. Accepting generated content replaces the block with regular editor blocks; discarding resets it. AI blocks are skipped during markdown serialization so they never appear in saved files.
+
+### LLM stack
+
+| Priority | Provider | Model | Config |
+|---|---|---|---|
+| Primary | Gemini API | `gemma-4-31b-it` | `GEMINI_API_KEY`, `GEMINI_MODEL` in `web/.env.local` |
+| Fallback | Ollama (local Docker) | `gemma4:2b` | `OLLAMA_URL`, `OLLAMA_MODEL` in `web/.env.local` |
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/routes/api/ai/chat.ts` | New SSE streaming server route — Gemini path uses `@google/generative-ai`; Ollama path uses OpenAI-compatible `/v1/chat/completions`; system prompt includes stable docs context when provided |
+| `web/src/hooks/useAIAssistant.ts` | New hook — manages `fetch` SSE stream with `AbortController`, appends text chunks, exposes `status`/`text`/`error`/`generate`/`reset` |
+| `web/src/hooks/useStableDocuments.ts` | New hook — flattens file tree, filters `status === "stable"`, lazily reads content and joins as context string |
+| `web/src/components/Editor/AIAssistantBlock.tsx` | New custom BlockNote block with `AIAssistantContext` (React Context for injecting stable docs) — indigo-themed UI: prompt textarea, stable docs toggle with count, Generate/Accept/Discard buttons, streaming output with cursor blink |
+| `web/src/components/Editor/DocEditor.tsx` | Added `AIAssistantBlock` to schema, `/AI Assistant` slash menu item under "Architecture" group, context provider wrapping `BlockNoteView`, `aiAssistant` block skipped in `serializeDocBlocks` |
+| `web/src/App.tsx` | Added `useStableDocuments` hook call; passes `getStableDocsContext` and `stableCount` to `DocEditor` |
+| `web/package.json` | Added `@google/generative-ai 0.24.1`, `@rolldown/binding-darwin-arm64 1.0.1` |
+| `.gitignore` | Added `.env.local` and `.env.*.local` patterns |
+
+---
+
 ## 2026-05-19 — feat: template picker in arch-doc-web
 
 ### Overview

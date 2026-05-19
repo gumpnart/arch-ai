@@ -74,6 +74,7 @@ The web editor supports two modes:
 - **Multi-select** with Ctrl/Cmd+Click → drag all selected items together
 - Ctrl+S saves directly to disk via `FileSystemFileHandle.createWritable()`
 - **Template picker** — click `📋 Template` in the sidebar to choose a built-in template (Architecture Project, API Service, ADR Collection) and scaffold a full project folder with one click; no server or MCP required
+- **AI writing assistant** — type `/` and select **AI Assistant** to insert a block that streams content from Gemini API (Gemma 4) or a local Ollama fallback; optionally sends all `status: stable` documents as context; accepting generated content replaces the block with regular editor blocks
 - **Command palette** — press `Ctrl+P` (or click the top bar) to fuzzy-search files by name or content
 - **Universal content search** — press `Ctrl+Shift+F` (or click the 🔍 tab in the sidebar) to search across all file contents; results are grouped by file with highlighted line excerpts; supports case-sensitive, whole-word, and regex modes
 - **File history navigation** — `Alt+←` / `Alt+→` (or the ← → buttons in the top bar) navigate back and forward through recently opened files
@@ -364,6 +365,14 @@ Open `diagrams-vault/` in [Obsidian](https://obsidian.md) for a visual library w
 |---|---|---|
 | `VAULT_DIR` | `/diagrams-vault` | Path to vault |
 | `PORT` | `3001` | HTTP port |
+
+### Web Editor (`web/.env.local`)
+| Variable | Default | Description |
+|---|---|---|
+| `GEMINI_API_KEY` | — | Gemini API key; if set, AI assistant uses Gemini (Gemma 4) |
+| `GEMINI_MODEL` | `gemma-4-31b-it` | Gemini model name |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama base URL (fallback when no Gemini key) |
+| `OLLAMA_MODEL` | `gemma4:2b` | Ollama model tag (Gemma 4 2B) |
 
 ---
 
