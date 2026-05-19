@@ -9,6 +9,7 @@ import { TemplateModal } from "./components/TemplateModal/TemplateModal.js";
 import { useLocalFolder } from "./hooks/useLocalFolder.js";
 import { useFileHistory } from "./hooks/useFileHistory.js";
 import { useOpenEditors } from "./hooks/useOpenEditors.js";
+import { useStableDocuments } from "./hooks/useStableDocuments.js";
 
 const DEFAULT_MD = (name: string) => {
   const title = name.replace(/\.md$/, "");
@@ -26,6 +27,10 @@ export default function App() {
   const local = useLocalFolder();
   const history = useFileHistory();
   const openEditors = useOpenEditors();
+  const { getContext: getStableDocsContext, stableCount } = useStableDocuments(
+    local.tree,
+    local.readFile
+  );
 
   // Central handler for opening a file — updates all state at once
   const openFile = useCallback(
@@ -332,6 +337,8 @@ export default function App() {
               onSaveSuccess={local.reload}
               onLoad={(fm) => local.updateFileStatus(selectedFile, fm.status)}
               fileOps={fileOps}
+              getStableDocsContext={getStableDocsContext}
+              stableCount={stableCount}
             />
           ) : (
             <EmptyState folderOpen={folderOpen} onOpenFolder={handleOpenFolder} />

@@ -1,4 +1,8 @@
 
+# Local env files with secrets
+.env.local
+.env.*.local
+
 # APM dependencies
 apm_modules/
 node_modules/
