@@ -1,23 +1,55 @@
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { SuggestionMenuController, getDefaultReactSlashMenuItems } from "@blocknote/react";
-import { BlockNoteEditor, BlockNoteSchema, defaultBlockSpecs, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
+import {
+  SuggestionMenuController,
+  getDefaultReactSlashMenuItems,
+} from "@blocknote/react";
+import {
+  BlockNoteEditor,
+  BlockNoteSchema,
+  defaultBlockSpecs,
+  insertOrUpdateBlockForSlashMenu,
+  markdownToBlocks,
+} from "@blocknote/core";
 import type { PartialBlock } from "@blocknote/core";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
 
-import { markdownToBlocks } from "../../lib/markdown.js";
-import { serializeFrontmatter } from "../../lib/frontmatter.js";
-import { FrontmatterPanel } from "./FrontmatterPanel.js";
-import { EditorToolbar } from "./EditorToolbar.js";
-import { MermaidBlock } from "./MermaidBlock.js";
-import { AIAssistantBlock, AIAssistantContext } from "./AIAssistantBlock.js";
-import { useState, useEffect, useCallback, useMemo } from "react";
-import type { Frontmatter } from "../../lib/frontmatter.js";
+import { useState, useEffect, useCallback } from "react";
+import { MermaidBlock } from "./MermaidBlock";
+import { AIAssistantBlock, AIAssistantContext } from "./AIAssistantBlock";
+import { Frontmatter, serializeFrontmatter, parseFrontmatter } from "../../lib/frontmatter";
+import { EditorToolbar } from "./EditorToolbar";
+import { FrontmatterPanel } from "./FrontmatterPanel";
 
 // ── Diagram languages ─────────────────────────────────────────────────────────
 
-const DIAGRAM_LANGS = new Set(["mermaid", "plantuml", "graphviz", "d2", "c4plantuml", "erd"]);
+const DIAGRAM_LANGS = new Set([
+  "mermaid",
+  "plantuml",
+  "graphviz",
+  "d2",
+  "c4plantuml",
+  "erd",
+]);
+
+// ── Schema singleton ──────────────────────────────────────────────────────────
+// Lazily initialized on first render (browser only — not during SSR module eval)
+
+let _editorSchema: ReturnType<typeof BlockNoteSchema.create> | null = null;
+
+function getEditorSchema() {
+  if (!_editorSchema) {
+    _editorSchema = BlockNoteSchema.create({
+      blockSpecs: {
+        ...defaultBlockSpecs,
+        mermaid: MermaidBlock,
+        aiAssistant: (AIAssistantBlock as any)(),
+      },
+    });
+  }
+  return _editorSchema;
+}
 
 // ── Block conversion helpers ──────────────────────────────────────────────────
 
@@ -40,7 +72,10 @@ function toDiagramBlocks(blocks: PartialBlock[]): PartialBlock[] {
   });
 }
 
-async function serializeDocBlocks(editor: BlockNoteEditor<any>, blocks: any[]): Promise<string> {
+async function serializeDocBlocks(
+  editor: BlockNoteEditor<any>,
+  blocks: any[],
+): Promise<string> {
   const parts: string[] = [];
   let pending: any[] = [];
 
@@ -54,7 +89,10 @@ async function serializeDocBlocks(editor: BlockNoteEditor<any>, blocks: any[]): 
   for (const block of blocks) {
     if (block.type === "mermaid") {
       await flush();
-      const { dsl, diagramType } = block.props as { dsl: string; diagramType: string };
+      const { dsl, diagramType } = block.props as {
+        dsl: string;
+        diagramType: string;
+      };
       parts.push("```" + (diagramType || "mermaid") + "\n" + dsl + "\n```");
     } else if (block.type === "aiAssistant") {
       await flush();
@@ -103,16 +141,17 @@ export function DocEditor({
     setLoadState(null);
     setLoadError("");
     const ctrl = new AbortController();
-    const parseEditor = BlockNoteEditor.create();
 
-    fileOps.read(filePath)
-      .then(async (content) => {
-        const result = await markdownToBlocks(content, parseEditor);
-        const blocks = toDiagramBlocks(result.blocks);
-        if (!ctrl.signal.aborted) {
-          setLoadState({ frontmatter: result.frontmatter, blocks });
-          onLoad?.(result.frontmatter);
-        }
+    fileOps
+      .read(filePath)
+      .then((content) => {
+        if (ctrl.signal.aborted) return;
+        const { frontmatter, body } = parseFrontmatter(content);
+        const parseEditor = BlockNoteEditor.create({ schema: getEditorSchema() });
+        const rawBlocks = markdownToBlocks(body, parseEditor.pmSchema) as PartialBlock[];
+        const blocks = toDiagramBlocks(rawBlocks);
+        setLoadState({ frontmatter, blocks });
+        onLoad?.(frontmatter);
       })
       .catch((err) => {
         if (!ctrl.signal.aborted) setLoadError(String(err));
@@ -122,11 +161,15 @@ export function DocEditor({
   }, [filePath]);
 
   if (loadError) {
-    return <div style={{ padding: 20, color: "#e53935" }}>Error: {loadError}</div>;
+    return (
+      <div style={{ padding: 20, color: "#e53935" }}>Error: {loadError}</div>
+    );
   }
   if (!loadState) {
     return (
-      <div style={{ padding: 20, color: "#999", fontStyle: "italic" }}>Loading…</div>
+      <div style={{ padding: 20, color: "#999", fontStyle: "italic" }}>
+        Loading…
+      </div>
     );
   }
 
@@ -162,32 +205,32 @@ function EditorInner({
   getStableDocsContext: () => Promise<string>;
   stableCount: number;
 }) {
-  const [frontmatter, setFrontmatter] = useState<Frontmatter>(initialFrontmatter);
+  const [frontmatter, setFrontmatter] =
+    useState<Frontmatter>(initialFrontmatter);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  const schema = useMemo(
-    () =>
-      BlockNoteSchema.create({
-        blockSpecs: {
-          ...defaultBlockSpecs,
-          mermaid: MermaidBlock,
-          aiAssistant: AIAssistantBlock as any,
-        },
-      }),
-    []
-  );
+  const editor = useCreateBlockNote({
+    schema: getEditorSchema(),
+    initialContent: initialBlocks,
+  });
 
-  const editor = useCreateBlockNote({ schema, initialContent: initialBlocks });
-
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
-      const updatedFm = { ...frontmatter, updated: new Date().toISOString().split("T")[0] };
-      const body = await serializeDocBlocks(editor as BlockNoteEditor<any>, editor.document);
+      const updatedFm = {
+        ...frontmatter,
+        updated: new Date().toISOString().split("T")[0],
+      };
+      const body = await serializeDocBlocks(
+        editor as BlockNoteEditor<any>,
+        editor.document,
+      );
       const markdown = serializeFrontmatter(updatedFm, body);
       await fileOps.write(filePath, markdown);
       setIsDirty(false);
@@ -211,7 +254,14 @@ function EditorInner({
 
   return (
     <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         <EditorToolbar
           filePath={filePath}
           status={frontmatter.status}
@@ -225,7 +275,9 @@ function EditorInner({
         />
         <div style={{ flex: 1, overflow: "auto", padding: "20px 40px" }}>
           {mounted && (
-            <AIAssistantContext.Provider value={{ getStableDocsContext, stableCount }}>
+            <AIAssistantContext.Provider
+              value={{ getStableDocsContext, stableCount }}
+            >
               <BlockNoteView
                 editor={editor}
                 onChange={() => setIsDirty(true)}
@@ -239,27 +291,45 @@ function EditorInner({
                       ...getDefaultReactSlashMenuItems(editor),
                       {
                         title: "Diagram",
-                        subtext: "Insert a Mermaid / C4 / PlantUML diagram block",
+                        subtext:
+                          "Insert a Mermaid / C4 / PlantUML diagram block",
                         onItemClick: () =>
-                          insertOrUpdateBlockForSlashMenu(editor as any, {
-                            type: "mermaid",
-                            props: { dsl: "graph LR\n  A --> B", diagramType: "mermaid", viewMode: "split" },
-                          } as any),
+                          insertOrUpdateBlockForSlashMenu(
+                            editor as any,
+                            {
+                              type: "mermaid",
+                              props: {
+                                dsl: "graph LR\n  A --> B",
+                                diagramType: "mermaid",
+                                viewMode: "split",
+                              },
+                            } as any,
+                          ),
                         group: "Architecture",
                         icon: <span style={{ fontWeight: 700 }}>⬡</span>,
                       },
                       {
                         title: "AI Assistant",
-                        subtext: "Generate content with AI — optionally uses stable docs as context",
+                        subtext:
+                          "Generate content with AI — optionally uses stable docs as context",
                         onItemClick: () =>
-                          insertOrUpdateBlockForSlashMenu(editor as any, {
-                            type: "aiAssistant",
-                            props: { prompt: "", useStableDocs: "false", generatedText: "" },
-                          } as any),
+                          insertOrUpdateBlockForSlashMenu(
+                            editor as any,
+                            {
+                              type: "aiAssistant",
+                              props: {
+                                prompt: "",
+                                useStableDocs: "false",
+                                generatedText: "",
+                              },
+                            } as any,
+                          ),
                         group: "Architecture",
                         icon: <span style={{ fontWeight: 700 }}>✦</span>,
                       },
-                    ].filter((i) => i.title.toLowerCase().includes(query.toLowerCase()))
+                    ].filter((i) =>
+                      i.title.toLowerCase().includes(query.toLowerCase()),
+                    )
                   }
                 />
               </BlockNoteView>

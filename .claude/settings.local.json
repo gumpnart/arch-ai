@@ -66,7 +66,27 @@
       "Bash(dir \"D:\\\\developments\\\\software-arch-ai\\\\web\\\\node_modules\" /b)",
       "Bash(findstr prosemirror *)",
       "Bash(node -e \"const fs=require\\('fs'\\); const src=fs.readFileSync\\('D:/developments/software-arch-ai/web/src/App.tsx','utf8'\\); console.log\\(src\\);\")",
-      "WebFetch(domain:tanstack.com)"
+      "WebFetch(domain:tanstack.com)",
+      "Bash(docker compose up *)",
+      "Bash(pnpm add *)",
+      "Bash(pnpm exec *)",
+      "Bash(git stash *)",
+      "Bash(pnpm run *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Read(//Users/gumpnart/.nvm/versions/node/**)",
+      "Read(//Users/gumpnart/.fnm/**)",
+      "Bash(curl -s -X POST http://localhost:3000/api/ai/chat -H 'Content-Type: application/json' -d '{\"prompt\": \"Write a one-sentence description of what an API Gateway does in software architecture.\"}')",
+      "Bash(curl -s \"https://generativelanguage.googleapis.com/v1beta/models?key=AIzaSyC8FcbymvCER_wiDIKl79JqNVMLsMO2IJM\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data.get\\('models',[]\\) if 'gemma' in m['name'].lower\\(\\)]\")",
+      "Bash(curl -s -N -X POST http://localhost:3000/api/ai/chat -H 'Content-Type: application/json' -d '{\"prompt\": \"Write a one-sentence description of what an API Gateway does in software architecture.\"}')",
+      "Bash(pkill -f \"vite dev\")",
+      "Bash(lsof -ti:3000)",
+      "Bash(xargs kill -9)",
+      "Bash(curl *)",
+      "Bash(git -C /Users/gumpnart/Developments/arch-ai add web/package.json web/pnpm-lock.yaml web/src/App.tsx web/src/components/Editor/DocEditor.tsx web/src/components/Editor/AIAssistantBlock.tsx web/src/hooks/useAIAssistant.ts web/src/hooks/useStableDocuments.ts \"web/src/routes/api/ai/chat.ts\" web/src/routeTree.gen.ts .gitignore)",
+      "Bash(git -C /Users/gumpnart/Developments/arch-ai status)",
+      "Bash(git *)",
+      "Bash(open *)"
     ]
   }
 }
