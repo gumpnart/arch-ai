@@ -36,8 +36,10 @@ export async function walkDirectory(
         itemPath
       );
       items.push({ type: "dir", name, path: itemPath, children });
-    } else if (name.endsWith(".md")) {
-      const status = await readFrontmatterStatus(handle as FileSystemFileHandle);
+    } else if (name.endsWith(".md") || name.endsWith(".excalidraw")) {
+      const status = name.endsWith(".md")
+        ? await readFrontmatterStatus(handle as FileSystemFileHandle)
+        : undefined;
       items.push({ type: "file", name, path: itemPath, status });
     }
   }
