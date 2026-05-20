@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SectionLabel } from "../ui/SectionLabel.js";
 
 interface OpenEditorsProps {
   openFiles: string[];
@@ -18,6 +19,7 @@ export function OpenEditors({
   return (
     <div style={{ flexShrink: 0 }}>
       <SectionLabel>Open</SectionLabel>
+
       {openFiles.map((path) => (
         <OpenEditorRow
           key={path}
@@ -27,21 +29,6 @@ export function OpenEditors({
           onClose={onClose}
         />
       ))}
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      padding: "8px 14px 4px",
-      fontSize: 10,
-      fontWeight: 700,
-      color: "var(--text-3)",
-      letterSpacing: "0.07em",
-      textTransform: "uppercase",
-    }}>
-      {children}
     </div>
   );
 }

@@ -74,8 +74,8 @@ function InlineInput({
         onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") onCancel(); }}
         onBlur={onCancel}
         style={{
-          width: "100%", fontSize: 12, padding: "2px 6px",
-          border: "1px solid #2563eb", borderRadius: 3,
+          width: "100%", fontSize: "var(--text-sm)", padding: "2px 6px",
+          border: "1px solid var(--accent)", borderRadius: "var(--r-sm)",
           outline: "none", background: "#fff", boxSizing: "border-box",
         }}
       />
@@ -94,9 +94,9 @@ function IconBtn({ title, onClick, children }: {
     <button
       title={title}
       onClick={onClick}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 3px", borderRadius: 3, fontSize: 11, color: "#6b7280", lineHeight: 1, flexShrink: 0 }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#111")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#6b7280")}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 3px", borderRadius: "var(--r-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)", lineHeight: 1, flexShrink: 0 }}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)")}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)")}
     >
       {children}
     </button>
@@ -109,8 +109,8 @@ function SelectionBadge({ count }: { count: number }) {
   if (count < 2) return null;
   return (
     <span style={{
-      fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 8,
-      background: "#2563eb", color: "#fff", flexShrink: 0, marginLeft: 4,
+      fontSize: "var(--text-xs)", fontWeight: 700, padding: "1px 5px", borderRadius: "var(--r-full)",
+      background: "var(--accent)", color: "#fff", flexShrink: 0, marginLeft: 4,
     }}>
       {count}
     </span>
@@ -155,8 +155,8 @@ function DirNode({
 
   const rowStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", paddingRight: 4,
-    background: isDropTarget ? "#eff6ff" : isSelected ? "#f0f7ff" : "none",
-    outline: isDropTarget ? "1px solid #93c5fd" : "none",
+    background: isDropTarget ? "var(--accent-bg)" : isSelected ? "var(--active-row-bg)" : "none",
+    outline: isDropTarget ? "1px solid var(--accent-border)" : "none",
     opacity: isDragging ? 0.4 : 1,
   };
 
@@ -192,7 +192,7 @@ function DirNode({
             flex: 1, display: "flex", alignItems: "center", gap: 4, textAlign: "left",
             padding: `4px 0 4px ${8 + depth * 12}px`,
             background: "none", border: "none", cursor: "pointer",
-            fontSize: 12, fontWeight: 600, color: "#555", minWidth: 0,
+            fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-2)", minWidth: 0,
           }}
         >
           <span style={{ fontSize: 10, flexShrink: 0 }}>{expanded ? "▾" : "▸"}</span>
@@ -291,8 +291,8 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       }}
       style={{
         display: "flex", alignItems: "center",
-        background: isActive ? "#e8f0fe" : isSelected ? "#eff6ff" : hovered ? "#f3f4f6" : "none",
-        borderLeft: isActive ? "2px solid #2563eb" : isSelected ? "2px solid #93c5fd" : "2px solid transparent",
+        background: isActive ? "var(--active-row-bg)" : isSelected ? "var(--accent-bg)" : hovered ? "var(--hover-bg)" : "none",
+        borderLeft: isActive ? "2px solid var(--accent)" : isSelected ? "2px solid var(--accent-border)" : "2px solid transparent",
         paddingRight: 4, cursor: "grab",
         opacity: isDragging ? 0.4 : 1,
         userSelect: "none",
@@ -301,7 +301,7 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       <span style={{
         flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0,
         padding: `4px 4px 4px ${8 + depth * 12}px`,
-        fontSize: 12, color: isActive ? "#1d4ed8" : "#374151",
+        fontSize: "var(--text-sm)", color: isActive ? "var(--accent)" : "var(--text-2)",
       }}>
         <span style={{ fontSize: 12, flexShrink: 0 }}>
           {node.name.endsWith(".excalidraw") ? "🎨" : "📄"}

@@ -115,7 +115,7 @@ export function SearchPalette({
           width: 600,
           maxWidth: "calc(100vw - 32px)",
           background: "#1e1e1e",
-          borderRadius: 8,
+          borderRadius: "var(--r-lg)",
           boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
           zIndex: 1001,
           overflow: "hidden",
@@ -348,7 +348,7 @@ function HighlightedText({ text, terms }: { text: string; terms: string[] }) {
           <mark
             key={i}
             style={{
-              background: "#f9c74f",
+              background: "#fbbf24",
               color: "#1e1e1e",
               borderRadius: 2,
               padding: "0 1px",

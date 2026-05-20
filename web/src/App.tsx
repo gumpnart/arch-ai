@@ -6,6 +6,7 @@ import { SearchPalette } from "./components/Search/SearchPalette.js";
 import { ContentSearchPanel } from "./components/Search/ContentSearchPanel.js";
 import { OpenEditors } from "./components/Sidebar/OpenEditors.js";
 import { TemplateModal } from "./components/TemplateModal/TemplateModal.js";
+import { SectionLabel } from "./components/ui/SectionLabel.js";
 import { useLocalFolder } from "./hooks/useLocalFolder.js";
 import { useFileHistory } from "./hooks/useFileHistory.js";
 import { useOpenEditors } from "./hooks/useOpenEditors.js";
@@ -399,17 +400,7 @@ export default function App() {
                   />
                 )}
 
-                <div style={{
-                  padding: "8px 14px 4px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "var(--text-3)",
-                  letterSpacing: "0.07em",
-                  textTransform: "uppercase",
-                  flexShrink: 0,
-                }}>
-                  Files
-                </div>
+                <SectionLabel>Files</SectionLabel>
 
                 <div style={{ flex: 1, overflow: "auto" }}>
                   <FileTree

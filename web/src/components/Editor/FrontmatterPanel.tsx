@@ -1,4 +1,6 @@
 import type { Frontmatter } from "../../lib/frontmatter.js";
+import { Input } from "../ui/Input.js";
+import { Badge } from "../ui/Badge.js";
 
 interface FrontmatterPanelProps {
   frontmatter: Frontmatter;
@@ -30,10 +32,9 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
       </div>
 
       <Field label="Title">
-        <input
+        <Input
           value={(frontmatter.title as string) ?? ""}
           onChange={(e) => update("title", e.target.value)}
-          style={inputStyle}
         />
       </Field>
 
@@ -41,7 +42,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
         <select
           value={(frontmatter.status as string) ?? "draft"}
           onChange={(e) => update("status", e.target.value)}
-          style={inputStyle}
+          style={selectStyle}
         >
           {["draft", "in-review", "stable", "deprecated"].map((s) => (
             <option key={s} value={s}>{s}</option>
@@ -50,57 +51,43 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
       </Field>
 
       <Field label="Owner">
-        <input
+        <Input
           value={(frontmatter.owner as string) ?? ""}
           onChange={(e) => update("owner", e.target.value)}
-          style={inputStyle}
         />
       </Field>
 
       <Field label="Tags">
-        <input
+        <Input
           placeholder="comma-separated"
           value={Array.isArray(frontmatter.tags) ? frontmatter.tags.join(", ") : ""}
           onChange={(e) =>
             update("tags", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))
           }
-          style={inputStyle}
         />
         {Array.isArray(frontmatter.tags) && frontmatter.tags.length > 0 && (
           <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 4 }}>
             {(frontmatter.tags as string[]).map((tag) => (
-              <span key={tag} style={{
-                fontSize: 10,
-                padding: "2px 8px",
-                background: "var(--accent-bg)",
-                color: "var(--accent)",
-                borderRadius: 999,
-                border: "1px solid var(--accent-border)",
-                fontWeight: 500,
-              }}>
-                {tag}
-              </span>
+              <Badge key={tag} variant="tag">{tag}</Badge>
             ))}
           </div>
         )}
       </Field>
 
       <Field label="Relates to">
-        <input
+        <Input
           placeholder="comma-separated"
           value={Array.isArray(frontmatter.relates_to) ? frontmatter.relates_to.join(", ") : ""}
           onChange={(e) =>
             update("relates_to", e.target.value.split(",").map((t) => t.trim()).filter(Boolean))
           }
-          style={inputStyle}
         />
       </Field>
 
       <Field label="Type">
-        <input
+        <Input
           value={(frontmatter.type as string) ?? ""}
           onChange={(e) => update("type", e.target.value)}
-          style={inputStyle}
         />
       </Field>
 
@@ -131,15 +118,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const inputStyle: React.CSSProperties = {
+const selectStyle: React.CSSProperties = {
   width: "100%",
-  fontSize: 12,
+  fontSize: "var(--text-sm)",
   padding: "5px 8px",
   border: "1px solid var(--border-mid)",
-  borderRadius: 6,
+  borderRadius: "var(--r-md)",
   background: "#fff",
   boxSizing: "border-box",
   color: "var(--text-1)",
   fontFamily: "var(--font-sans)",
   outline: "none",
+  cursor: "pointer",
 };

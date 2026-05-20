@@ -1,4 +1,5 @@
 import { DocStatusBadge } from "../Sidebar/DocStatusBadge.js";
+import { Button } from "../ui/Button.js";
 import type { Frontmatter } from "../../lib/frontmatter.js";
 
 interface EditorToolbarProps {
@@ -122,25 +123,14 @@ export function EditorToolbar({
       </select>
 
       {/* Save button */}
-      <button
-        onClick={onSave}
+      <Button
+        variant={isDirty && !isSaving ? "primary" : "secondary"}
+        size="sm"
         disabled={isSaving || !isDirty}
-        style={{
-          fontSize: 12,
-          padding: "6px 16px",
-          borderRadius: 8,
-          border: "none",
-          cursor: isDirty && !isSaving ? "pointer" : "default",
-          background: isDirty && !isSaving ? "var(--accent)" : "var(--hover-bg)",
-          color: isDirty && !isSaving ? "#fff" : "var(--text-3)",
-          fontWeight: 600,
-          fontFamily: "var(--font-sans)",
-          boxShadow: isDirty && !isSaving ? "0 1px 3px rgba(37,99,235,.3)" : "none",
-          transition: "background 0.15s, color 0.15s",
-        }}
+        onClick={onSave}
       >
         {isSaving ? "Saving…" : "Save"}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -31,7 +31,7 @@ export function ContentSearchPanel({
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
       {/* Search input + options */}
-      <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid #e0e0e0", flexShrink: 0 }}>
+      <div style={{ padding: "var(--sp-2) 10px 6px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         {/* Input row */}
         <div style={{ position: "relative", marginBottom: 6 }}>
           <input
@@ -45,16 +45,17 @@ export function ContentSearchPanel({
             style={{
               width: "100%",
               boxSizing: "border-box",
-              fontSize: 12,
+              fontSize: "var(--text-sm)",
               padding: "5px 28px 5px 8px",
-              border: "1px solid #d1d5db",
-              borderRadius: 4,
+              border: "1px solid var(--border-mid)",
+              borderRadius: "var(--r-md)",
               outline: "none",
-              color: "#374151",
+              color: "var(--text-1)",
               background: "#fff",
+              fontFamily: "var(--font-sans)",
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "#2563eb"; }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = "#d1d5db"; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-mid)"; }}
           />
           {search.query && (
             <button
@@ -63,7 +64,7 @@ export function ContentSearchPanel({
               style={{
                 position: "absolute", right: 5, top: "50%", transform: "translateY(-50%)",
                 background: "none", border: "none", cursor: "pointer",
-                fontSize: 11, color: "#9ca3af", padding: "0 2px", lineHeight: 1,
+                fontSize: "var(--text-xs)", color: "var(--text-3)", padding: "0 2px", lineHeight: 1,
               }}
             >
               ✕
@@ -98,9 +99,9 @@ export function ContentSearchPanel({
       {!isIdle && (
         <div style={{
           padding: "4px 10px",
-          fontSize: 10,
-          color: "#888",
-          borderBottom: "1px solid #f0f0f0",
+          fontSize: "var(--text-xs)",
+          color: "var(--text-3)",
+          borderBottom: "1px solid var(--border)",
           flexShrink: 0,
           display: "flex",
           alignItems: "center",
@@ -120,11 +121,11 @@ export function ContentSearchPanel({
           )}
           {/* Progress bar */}
           {search.progress && (
-            <div style={{ width: 60, height: 3, background: "#e5e7eb", borderRadius: 2, overflow: "hidden" }}>
+            <div style={{ width: 60, height: 3, background: "var(--border-mid)", borderRadius: 2, overflow: "hidden" }}>
               <div
                 style={{
                   height: "100%",
-                  background: "#2563eb",
+                  background: "var(--accent)",
                   borderRadius: 2,
                   width: `${(search.progress.searched / search.progress.total) * 100}%`,
                   transition: "width 0.1s",
@@ -138,7 +139,7 @@ export function ContentSearchPanel({
       {/* Results list */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {isIdle ? (
-          <div style={{ padding: "20px 12px", textAlign: "center", color: "#bbb", fontSize: 12 }}>
+          <div style={{ padding: "20px 12px", textAlign: "center", color: "var(--text-3)", fontSize: "var(--text-sm)" }}>
             Type to search across all files
           </div>
         ) : (
@@ -187,17 +188,17 @@ function FileResultGroup({
           gap: 5,
           padding: "4px 10px",
           cursor: "pointer",
-          background: isActiveFile ? "#e8f0fe" : "#f5f5f5",
-          borderBottom: "1px solid #ebebeb",
+          background: isActiveFile ? "var(--active-row-bg)" : "var(--hover-bg)",
+          borderBottom: "1px solid var(--border)",
           position: "sticky",
           top: 0,
           zIndex: 1,
         }}
         onMouseEnter={(e) => {
-          if (!isActiveFile) (e.currentTarget as HTMLDivElement).style.background = "#ececec";
+          if (!isActiveFile) (e.currentTarget as HTMLDivElement).style.background = "var(--border-mid)";
         }}
         onMouseLeave={(e) => {
-          (e.currentTarget as HTMLDivElement).style.background = isActiveFile ? "#e8f0fe" : "#f5f5f5";
+          (e.currentTarget as HTMLDivElement).style.background = isActiveFile ? "var(--active-row-bg)" : "var(--hover-bg)";
         }}
       >
         <span style={{ fontSize: 9, color: "#999", flexShrink: 0 }}>{collapsed ? "▸" : "▾"}</span>
@@ -206,7 +207,7 @@ function FileResultGroup({
           style={{
             fontSize: 12,
             fontWeight: 600,
-            color: isActiveFile ? "#1a56db" : "#374151",
+            color: isActiveFile ? "var(--accent)" : "var(--text-2)",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -219,7 +220,7 @@ function FileResultGroup({
           style={{
             fontSize: 10,
             color: "#fff",
-            background: isActiveFile ? "#2563eb" : "#6b7280",
+            background: isActiveFile ? "var(--accent)" : "var(--text-3)",
             borderRadius: 8,
             padding: "1px 6px",
             flexShrink: 0,
@@ -275,15 +276,15 @@ function MatchRow({
         gap: 6,
         padding: "2px 10px 2px 22px",
         cursor: "pointer",
-        background: hovered ? "#f0f4ff" : "transparent",
-        borderBottom: "1px solid #f5f5f5",
+        background: hovered ? "var(--active-row-bg)" : "transparent",
+        borderBottom: "1px solid var(--border)",
       }}
     >
       {/* Line number */}
       <span
         style={{
           fontSize: 10,
-          color: "#9ca3af",
+          color: "var(--text-3)",
           flexShrink: 0,
           minWidth: 24,
           textAlign: "right",
@@ -298,8 +299,8 @@ function MatchRow({
       <span
         style={{
           fontSize: 12,
-          color: "#374151",
-          fontFamily: "monospace",
+          color: "var(--text-2)",
+          fontFamily: "var(--font-mono)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
@@ -329,7 +330,7 @@ function MatchHighlight({
       {text.slice(0, start)}
       <mark
         style={{
-          background: "#fef08a",
+          background: "#fef9c3",
           color: "#1e1e1e",
           borderRadius: 2,
           padding: "0 1px",
@@ -364,10 +365,10 @@ function OptionToggle({
         fontFamily: "monospace",
         fontWeight: 600,
         padding: "2px 6px",
-        border: `1px solid ${active ? "#2563eb" : "#d1d5db"}`,
-        borderRadius: 3,
-        background: active ? "#eff6ff" : "#fff",
-        color: active ? "#2563eb" : "#6b7280",
+        border: `1px solid ${active ? "var(--accent)" : "var(--border-mid)"}`,
+        borderRadius: "var(--r-sm)",
+        background: active ? "var(--accent-bg)" : "#fff",
+        color: active ? "var(--accent)" : "var(--text-2)",
         cursor: "pointer",
       }}
     >
