@@ -1,5 +1,28 @@
 # Change Log
 
+## 2026-05-20 — feat: Replace all SVG icons with Phosphor Icons
+
+### Overview
+
+Replaced every inline SVG icon in `arch-doc-web` with components from `@phosphor-icons/react` (v2.1.10). All icons use Regular weight at consistent sizing.
+
+### Dependency
+
+| Package | Version |
+|---|---|
+| `@phosphor-icons/react` | `^2.1.10` |
+
+### Icons replaced
+
+| Component | Icons |
+|---|---|
+| `web/src/App.tsx` | `House` (Explorer), `MagnifyingGlass` (Search), `SquaresFour` (Templates), `Lightning` (Quick Open), `FilePlus` (New markdown), `PenNib` (New drawing), `FolderOpen` (Open folder) |
+| `web/src/components/Editor/EditorToolbar.tsx` | `CaretLeft`, `CaretRight` (back/forward nav arrows) |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | `CaretLeft`, `CaretRight` (back/forward nav arrows) |
+| `web/src/components/Sidebar/OpenEditors.tsx` | `FileText` (markdown files), `PenNib` (drawing files), `X` (close tab) |
+
+---
+
 ## 2026-05-20 — feat: Full design system with shared UI primitives
 
 ### Overview

@@ -1,3 +1,4 @@
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { DocStatusBadge } from "../Sidebar/DocStatusBadge.js";
 import { Button } from "../ui/Button.js";
 import type { Frontmatter } from "../../lib/frontmatter.js";
@@ -180,15 +181,7 @@ function NavArrow({
         (e.currentTarget as HTMLButtonElement).style.background = "none";
       }}
     >
-      {dir === "left" ? (
-        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path d="M15 18l-6-6 6-6" />
-        </svg>
-      ) : (
-        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      )}
+      {dir === "left" ? <CaretLeft size={14} /> : <CaretRight size={14} />}
     </button>
   );
 }

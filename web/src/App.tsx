@@ -1,4 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
+import {
+  House, MagnifyingGlass, SquaresFour, Lightning,
+  FilePlus, PenNib, FolderOpen,
+} from "@phosphor-icons/react";
 import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor } from "./components/Editor/DocEditor.js";
 import { ExcalidrawEditor } from "./components/Editor/ExcalidrawEditor.js";
@@ -220,10 +224,7 @@ export default function App() {
           title="Explorer"
           onClick={() => setRailView("explorer")}
         >
-          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
+          <House size={18} />
         </RailIcon>
 
         <RailIcon
@@ -232,10 +233,7 @@ export default function App() {
           onClick={() => { if (folderOpen) setRailView("search"); }}
           muted={!folderOpen}
         >
-          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
+          <MagnifyingGlass size={18} />
         </RailIcon>
 
         <RailIcon
@@ -243,12 +241,7 @@ export default function App() {
           onClick={() => { if (folderOpen) setTemplateModalOpen(true); }}
           muted={!folderOpen}
         >
-          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <rect x="3" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="3" width="7" height="7" rx="1" />
-            <rect x="14" y="14" width="7" height="7" rx="1" />
-            <rect x="3" y="14" width="7" height="7" rx="1" />
-          </svg>
+          <SquaresFour size={18} />
         </RailIcon>
 
         <div style={{ width: 24, height: 1, background: "var(--rail-border)", margin: "4px 0" }} />
@@ -258,10 +251,7 @@ export default function App() {
           onClick={() => { if (folderOpen) setPaletteOpen(true); }}
           muted={!folderOpen}
         >
-          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M12 2a4 4 0 0 1 4 4v2h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2V6a4 4 0 0 1 4-4z" />
-            <circle cx="12" cy="16" r="1.5" fill="currentColor" />
-          </svg>
+          <Lightning size={18} />
         </RailIcon>
 
         {/* Spacer */}
@@ -271,25 +261,16 @@ export default function App() {
         {folderOpen && (
           <>
             <RailIcon title="New markdown file" onClick={() => handleNewFile(null, "untitled.md")}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <line x1="12" y1="11" x2="12" y2="17" />
-                <line x1="9" y1="14" x2="15" y2="14" />
-              </svg>
+              <FilePlus size={16} />
             </RailIcon>
             <RailIcon title="New drawing" onClick={() => handleNewExcalidraw(null)}>
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-              </svg>
+              <PenNib size={16} />
             </RailIcon>
           </>
         )}
 
         <RailIcon title="Open folder" onClick={handleOpenFolder}>
-          <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
+          <FolderOpen size={17} />
         </RailIcon>
 
         {/* Avatar */}
