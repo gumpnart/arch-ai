@@ -63,9 +63,14 @@ software-arch-ai/
 
 ### web (`web/`)
 - React + Vite + TanStack Start, port 3000
-- BlockNote editor with custom `MermaidBlock` — converts mermaid/plantuml/graphviz/d2/c4plantuml/erd code fences to rendered diagrams via Kroki (`/api/kroki/render`)
-- Sidebar file tree, frontmatter panel, Ctrl+S save
-- Run: `cd web && pnpm run dev`
+- **Two editor modes** routed by file extension:
+  - **`.md` files** → `DocEditor` (BlockNote) with custom `MermaidBlock` (Kroki-rendered diagrams via `/api/kroki/render`), `AIAssistantBlock` (Gemini/Ollama streaming), frontmatter panel, status badges
+  - **`.excalidraw` files** → `ExcalidrawEditor` — full Excalidraw canvas (all native tools, shapes, export, libraries, theme); lazy-loaded via `React.lazy` for SSR safety; saves JSON back to disk on `Ctrl+S`
+- Sidebar: file tree (🎨 icon for `.excalidraw`, 📄 for `.md`), `+📄` new markdown, `+🎨` new drawing, open-editors tab bar, template picker
+- `ExcalidrawCanvas.tsx` — inner canvas wrapper; exposes `getJSON()` via `useImperativeHandle`
+- `ExcalidrawEditor.tsx` — shell; loads/saves file, toolbar, handles dirty state + save status
+- `FileTree.tsx` — rename preserves original extension; new-file input accepts any extension (defaults to original extension when user omits it)
+- Run: `cd web && pnpm run dev` (requires Node 20+; use `nvm use 20` first)
 
 ### kroki + mermaid (Docker services)
 - Kroki on port 8000 (`yuzutech/kroki`) — renders Mermaid, PlantUML, Graphviz/DOT, D2, C4, Structurizr, BPMN, Erd, Nomnoml, and ~20 more formats to SVG
