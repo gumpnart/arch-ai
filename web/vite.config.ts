@@ -23,7 +23,7 @@ export default defineConfig({
   server: { port: 3000, strictPort: true },
   plugins: [tanstackStart(), tailwindcss(), react()],
   optimizeDeps: {
-    include: ["@blocknote/core", "@blocknote/react", "@blocknote/shadcn"],
+    include: ["@blocknote/core", "@blocknote/react", "@blocknote/shadcn", "@excalidraw/excalidraw"],
     rolldownOptions: {
       plugins: [fixProsemirrorRenderSpec],
     },
