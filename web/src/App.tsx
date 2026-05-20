@@ -437,25 +437,7 @@ export default function App() {
           ) : (
             <div style={{ marginBottom: 10, height: 20 }} />
           )}
-
-          {/* Search input */}
-          <input
-            placeholder="Search files…"
-            onFocus={() => { if (folderOpen) setRailView("search"); }}
-            readOnly={!folderOpen}
-            style={{
-              width: "100%",
-              background: "#f4f4f5",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 10px",
-              fontSize: 12,
-              color: "var(--text-2)",
-              fontFamily: "var(--font-sans)",
-              outline: "none",
-              cursor: folderOpen ? "text" : "not-allowed",
-            }}
-          />
+          
         </div>
 
         {/* Explorer view */}
