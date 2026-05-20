@@ -1,6 +1,44 @@
 @import "tailwindcss";
 @source "../node_modules/@blocknote/shadcn";
 
+/* ── Alt D — Icon Rail design system tokens ──────────────────────────────── */
+:root {
+  /* Rail */
+  --rail-bg: #18181b;
+  --rail-border: #27272a;
+  --rail-icon: #52525b;
+  --rail-icon-hover: #d4d4d8;
+  --rail-active-bg: #1d3a7a;
+  --rail-active-color: #93c5fd;
+  --rail-width: 52px;
+
+  /* File panel */
+  --panel-bg: #fafafa;
+  --panel-border: #f0f0f0;
+  --panel-width: 220px;
+
+  /* Editor */
+  --editor-bg: #ffffff;
+  --editor-max-width: 740px;
+  --editor-topbar-h: 48px;
+
+  /* Color palette */
+  --accent: #2563eb;
+  --accent-bg: #eff6ff;
+  --accent-border: #bfdbfe;
+  --text-1: #09090b;
+  --text-2: #52525b;
+  --text-3: #a1a1aa;
+  --border: #f0f0f0;
+  --border-mid: #e4e4e7;
+  --hover-bg: #f4f4f5;
+  --active-row-bg: #eff6ff;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
 /* Tailwind v4 theme tokens — generates bg-popover, text-popover-foreground, etc. */
 @theme {
   --color-background: hsl(0 0% 100%);

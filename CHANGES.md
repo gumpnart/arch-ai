@@ -1,5 +1,26 @@
 # Change Log
 
+## 2026-05-20 — feat: Alt D Icon Rail UI redesign
+
+### Overview
+
+Implemented the **Alt D — Icon Rail** design system across `arch-doc-web`. Replaces the previous dark top navbar + wide sidebar with a Linear-style narrow icon rail (52px) + file panel (220px) + focused white editor area with breadcrumb topbar. Includes a full design token system via CSS custom properties.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/index.css` | Added Alt D design system CSS variables: rail, panel, editor, color palette, typography tokens |
+| `web/src/App.tsx` | Full layout rewrite — removes `NavBar`, adds `RailIcon` component, 3-column shell (icon rail + file panel + editor area), `PanelEmptyState`, `EditorEmptyState` |
+| `web/src/components/Editor/EditorToolbar.tsx` | Rewritten — breadcrumb display with back/forward nav arrows, status chip, status select, save button; accepts `folderName`, `canGoBack/Forward`, `onGoBack/Forward` props |
+| `web/src/components/Editor/DocEditor.tsx` | Added `DocEditorNavProps` interface; threads `folderName` and nav props to `EditorInner` → `EditorToolbar`; editor content now max-width 740px centered |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | Updated toolbar to Alt D style with breadcrumb + nav arrows; accepts `DocEditorNavProps` |
+| `web/src/components/Editor/FrontmatterPanel.tsx` | Restyled to use design tokens — "Properties" header, tag chips, consistent input radius |
+| `web/src/components/Sidebar/OpenEditors.tsx` | Rewritten with Alt D panel styling — section label, file icon SVGs, accent-bg active row, SVG close button |
+| `web/public/mockups/` | Added 4 original + 4 alternative HTML/CSS design mockups + PNG screenshots |
+
+---
+
 ## 2026-05-20 — feat: Excalidraw editor in arch-doc-web
 
 ### Overview
