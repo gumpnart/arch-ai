@@ -15,6 +15,38 @@ import { useLocalFolder } from "./hooks/useLocalFolder.js";
 import { useFileHistory } from "./hooks/useFileHistory.js";
 import { useOpenEditors } from "./hooks/useOpenEditors.js";
 import { useStableDocuments } from "./hooks/useStableDocuments.js";
+import type { FileNode } from "./api/client.js";
+
+// ── File tree helpers ──────────────────────────────────────────────────────────
+
+function findInTree(nodes: FileNode[], path: string): FileNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.type === "dir" && node.children) {
+      const found = findInTree(node.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function childNamesOf(nodes: FileNode[], dir: string | null): string[] {
+  if (dir === null) return nodes.map((n) => n.name);
+  const dirNode = findInTree(nodes, dir);
+  return dirNode?.children?.map((n) => n.name) ?? [];
+}
+
+function uniqueCopyName(name: string, taken: string[]): string {
+  const takenSet = new Set(taken);
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  let candidate = `${stem} copy${ext}`;
+  let n = 2;
+  while (takenSet.has(candidate)) { candidate = `${stem} copy ${n}${ext}`; n++; }
+  return candidate;
+}
+
 
 const DEFAULT_MD = (name: string) => {
   const title = name.replace(/\.md$/, "");
@@ -168,6 +200,65 @@ export default function App() {
         setSelectedFile(pathMap[selectedFile]);
     },
     [local, selectedFile]
+  );
+
+  const handleCopy = useCallback(
+    async (path: string, destDir: string | null) => {
+      const node = findInTree(local.tree, path);
+      if (!node) return;
+      const existingNames = childNamesOf(local.tree, destDir);
+      const name = new Set(existingNames).has(node.name)
+        ? uniqueCopyName(node.name, existingNames)
+        : node.name;
+
+      async function copyNode(src: FileNode, parent: string | null, destName: string) {
+        if (src.type === "file") {
+          const content = await local.readFile(src.path);
+          const newPath = await local.createFile(parent, destName, content);
+          return newPath;
+        } else {
+          const dirPath = await local.createDir(parent, destName);
+          for (const child of src.children ?? []) {
+            await copyNode(child, dirPath, child.name);
+          }
+          return dirPath;
+        }
+      }
+
+      const newPath = await copyNode(node, destDir, name);
+      await local.reload();
+      if (node.type === "file") openFile(newPath);
+    },
+    [local, openFile]
+  );
+
+  const handleDuplicate = useCallback(
+    async (path: string) => {
+      const node = findInTree(local.tree, path);
+      if (!node) return;
+      const dot = path.lastIndexOf("/");
+      const parentDir = dot > 0 ? path.slice(0, dot) : null;
+      const siblings = childNamesOf(local.tree, parentDir);
+      const name = uniqueCopyName(node.name, siblings);
+
+      async function copyNode(src: FileNode, parent: string | null, destName: string) {
+        if (src.type === "file") {
+          const content = await local.readFile(src.path);
+          return local.createFile(parent, destName, content);
+        } else {
+          const dirPath = await local.createDir(parent, destName);
+          for (const child of src.children ?? []) {
+            await copyNode(child, dirPath, child.name);
+          }
+          return dirPath;
+        }
+      }
+
+      const newPath = await copyNode(node, parentDir, name);
+      await local.reload();
+      if (node.type === "file") openFile(newPath);
+    },
+    [local, openFile]
   );
 
   const handleOpenFolder = useCallback(async () => {
@@ -383,7 +474,7 @@ export default function App() {
 
                 <SectionLabel>Files</SectionLabel>
 
-                <div style={{ flex: 1, overflow: "auto" }}>
+                <div style={{ flex: 1, overflow: "auto" }} onContextMenu={(e) => e.preventDefault()}>
                   <FileTree
                     tree={local.tree}
                     selectedFile={selectedFile}
@@ -393,6 +484,8 @@ export default function App() {
                     onRename={handleRename}
                     onDelete={handleDelete}
                     onMove={handleMove}
+                    onCopy={handleCopy}
+                    onDuplicate={handleDuplicate}
                   />
                 </div>
               </>

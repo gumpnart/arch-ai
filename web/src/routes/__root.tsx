@@ -24,7 +24,7 @@ function RootComponent() {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body onContextMenu={(e) => e.preventDefault()}>
         <Outlet />
         <Scripts />
       </body>
