@@ -1,5 +1,30 @@
 # Change Log
 
+## 2026-05-20 — feat: Full design system with shared UI primitives
+
+### Overview
+
+Built a complete design system on top of the Alt D layout. Added shared React primitive components (`Button`, `Input`, `Badge`, `SectionLabel`) using CSS custom properties. Swept every component in the codebase to replace hardcoded hex colors with design tokens. Status semantic colors now defined as CSS variables and used consistently.
+
+### New files
+
+| File | Description |
+|---|---|
+| `web/src/components/ui/Button.tsx` | Variants: primary, secondary, ghost, icon; sizes: sm, md |
+| `web/src/components/ui/Input.tsx` | Standard text input with focus ring, font tokens |
+| `web/src/components/ui/Badge.tsx` | Variants: status (with `StatusBadge`), count, tag |
+| `web/src/components/ui/SectionLabel.tsx` | Panel section header using tokens |
+
+### Token additions (`index.css`)
+
+Typography scale (`--text-xs` → `--text-lg`), spacing grid (`--sp-1` → `--sp-10`), radius scale (`--r-sm` → `--r-full`), shadow tokens (`--shadow-sm/md/lg/accent`), status semantic colors (`--status-draft-bg/text`, etc.)
+
+### Components updated
+
+`DocStatusBadge`, `FileTree`, `ContentSearchPanel`, `SearchPalette`, `EditorToolbar`, `FrontmatterPanel`, `OpenEditors`, `App`
+
+---
+
 ## 2026-05-20 — feat: Alt D Icon Rail UI redesign
 
 ### Overview
