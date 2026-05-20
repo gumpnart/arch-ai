@@ -1,5 +1,24 @@
 # Change Log
 
+## 2026-05-20 — feat: Excalidraw editor in arch-doc-web
+
+### Overview
+
+Added full Excalidraw drawing support to `arch-doc-web`. Users can create and open `.excalidraw` files alongside markdown documents. The full Excalidraw canvas (drawing tools, shapes, text, connectors, export, libraries, collaboration, dark/light theme, etc.) is available. The component is lazy-loaded for SSR safety.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/components/Editor/ExcalidrawCanvas.tsx` | New component — wraps `<Excalidraw>` with `forwardRef`; exposes `getJSON()` via `useImperativeHandle`; imports Excalidraw CSS; skips initial `onChange` fire to avoid false dirty state |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | New component — shell with toolbar (file name, unsaved indicator, Save button); lazy-loads `ExcalidrawCanvas` via `React.lazy`; loads/saves `.excalidraw` JSON via `FileOps`; handles `Ctrl+S` |
+| `web/src/App.tsx` | Routes `.excalidraw` files to `ExcalidrawEditor` instead of `DocEditor`; adds `+🎨` "New Drawing" sidebar button; `handleNewFile` now writes `EMPTY_EXCALIDRAW` JSON for `.excalidraw` files; adds `handleNewExcalidraw` helper |
+| `web/src/components/Sidebar/FileTree.tsx` | Shows `🎨` icon for `.excalidraw` files; strips `.excalidraw` from display name; fixes rename to preserve original extension; fixes DirNode new-file to allow any extension (not just `.md`) |
+| `web/vite.config.ts` | Added `@excalidraw/excalidraw` to `optimizeDeps.include` for pre-bundling |
+| `web/package.json` | Added `@excalidraw/excalidraw 0.18.1` |
+
+---
+
 ## 2026-05-19 — feat: AI writing assistant block in arch-doc-web
 
 ### Overview

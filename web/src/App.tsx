@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor, type FileOps } from "./components/Editor/DocEditor.js";
+import { ExcalidrawEditor } from "./components/Editor/ExcalidrawEditor.js";
 import { NavBar } from "./components/NavBar/NavBar.js";
 import { SearchPalette } from "./components/Search/SearchPalette.js";
 import { ContentSearchPanel } from "./components/Search/ContentSearchPanel.js";
@@ -16,6 +17,19 @@ const DEFAULT_MD = (name: string) => {
   const today = new Date().toISOString().split("T")[0];
   return `---\ntitle: ${title}\nstatus: draft\ncreated: ${today}\nupdated: ${today}\n---\n\n# ${title}\n`;
 };
+
+const EMPTY_EXCALIDRAW = JSON.stringify(
+  {
+    type: "excalidraw",
+    version: 2,
+    source: "arch-doc-web",
+    elements: [],
+    appState: { gridSize: null, viewBackgroundColor: "#ffffff" },
+    files: {},
+  },
+  null,
+  2
+);
 
 type SidebarView = "explorer" | "search";
 
@@ -90,7 +104,18 @@ export default function App() {
 
   const handleNewFile = useCallback(
     async (parentDir: string | null, name: string) => {
-      const filePath = await local.createFile(parentDir, name, DEFAULT_MD(name));
+      const content = name.endsWith(".excalidraw") ? EMPTY_EXCALIDRAW : DEFAULT_MD(name);
+      const filePath = await local.createFile(parentDir, name, content);
+      await local.reload();
+      openFile(filePath);
+    },
+    [local, openFile]
+  );
+
+  const handleNewExcalidraw = useCallback(
+    async (parentDir: string | null = null) => {
+      const name = "untitled.excalidraw";
+      const filePath = await local.createFile(parentDir, name, EMPTY_EXCALIDRAW);
       await local.reload();
       openFile(filePath);
     },
@@ -262,9 +287,15 @@ export default function App() {
                   <>
                     <SidebarBtn
                       onClick={() => handleNewFile(null, "untitled.md")}
-                      title="New file at root"
+                      title="New markdown file at root"
                     >
                       +📄
+                    </SidebarBtn>
+                    <SidebarBtn
+                      onClick={() => handleNewExcalidraw(null)}
+                      title="New Excalidraw drawing at root"
+                    >
+                      +🎨
                     </SidebarBtn>
                     <SidebarBtn
                       onClick={() => handleNewDir(null, "new-folder")}
@@ -331,15 +362,24 @@ export default function App() {
         {/* ── Editor ─────────────────────────────────────────────────────────── */}
         <main style={{ flex: 1, overflow: "hidden" }}>
           {selectedFile ? (
-            <DocEditor
-              key={selectedFile}
-              filePath={selectedFile}
-              onSaveSuccess={local.reload}
-              onLoad={(fm) => local.updateFileStatus(selectedFile, fm.status)}
-              fileOps={fileOps}
-              getStableDocsContext={getStableDocsContext}
-              stableCount={stableCount}
-            />
+            selectedFile.endsWith(".excalidraw") ? (
+              <ExcalidrawEditor
+                key={selectedFile}
+                filePath={selectedFile}
+                fileOps={fileOps}
+                onSaveSuccess={local.reload}
+              />
+            ) : (
+              <DocEditor
+                key={selectedFile}
+                filePath={selectedFile}
+                onSaveSuccess={local.reload}
+                onLoad={(fm) => local.updateFileStatus(selectedFile, fm.status)}
+                fileOps={fileOps}
+                getStableDocsContext={getStableDocsContext}
+                stableCount={stableCount}
+              />
+            )
           ) : (
             <EmptyState folderOpen={folderOpen} onOpenFolder={handleOpenFolder} />
           )}

@@ -232,7 +232,7 @@ function DirNode({
             <InlineInput depth={depth + 1}
               placeholder={creating === "file" ? "filename.md" : "folder-name"}
               onConfirm={(raw) => {
-                const name = creating === "file" && !raw.endsWith(".md") ? `${raw}.md` : raw;
+                const name = creating === "file" && !raw.includes(".") ? `${raw}.md` : raw;
                 if (creating === "file") onNewFile?.(node.path, name);
                 else onNewDir?.(node.path, name);
                 setCreating(null);
@@ -262,9 +262,14 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
   const isDragging = dnd.draggingPaths.includes(node.path);
 
   if (renaming) {
+    const origExt = node.name.includes(".") ? "." + node.name.split(".").pop() : ".md";
     return (
       <InlineInput defaultValue={node.name} depth={depth}
-        onConfirm={(n) => { const name = n.endsWith(".md") ? n : `${n}.md`; onRename?.(node.path, name); setRenaming(false); }}
+        onConfirm={(n) => {
+          const name = n.includes(".") ? n : n + origExt;
+          onRename?.(node.path, name);
+          setRenaming(false);
+        }}
         onCancel={() => setRenaming(false)} />
     );
   }
@@ -298,9 +303,11 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
         padding: `4px 4px 4px ${8 + depth * 12}px`,
         fontSize: 12, color: isActive ? "#1d4ed8" : "#374151",
       }}>
-        <span style={{ fontSize: 12, flexShrink: 0 }}>📄</span>
+        <span style={{ fontSize: 12, flexShrink: 0 }}>
+          {node.name.endsWith(".excalidraw") ? "🎨" : "📄"}
+        </span>
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {node.name.replace(/\.md$/, "")}
+          {node.name.replace(/\.(md|excalidraw)$/, "")}
         </span>
         <DocStatusBadge status={node.status} />
         {isSelected && !isActive && <SelectionBadge count={dnd.selectedPaths.size} />}
