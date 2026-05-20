@@ -86,7 +86,9 @@
       "Bash(git -C /Users/gumpnart/Developments/arch-ai add web/package.json web/pnpm-lock.yaml web/src/App.tsx web/src/components/Editor/DocEditor.tsx web/src/components/Editor/AIAssistantBlock.tsx web/src/hooks/useAIAssistant.ts web/src/hooks/useStableDocuments.ts \"web/src/routes/api/ai/chat.ts\" web/src/routeTree.gen.ts .gitignore)",
       "Bash(git -C /Users/gumpnart/Developments/arch-ai status)",
       "Bash(git *)",
-      "Bash(open *)"
+      "Bash(open *)",
+      "Bash(Get-ChildItem \"D:\\\\developments\\\\software-arch-ai\\\\web\\\\src\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object FullName)"
     ]
   }
 }
