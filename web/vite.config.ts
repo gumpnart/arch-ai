@@ -21,7 +21,16 @@ const fixProsemirrorRenderSpec = {
 
 export default defineConfig({
   server: { port: 3000, strictPort: true },
-  plugins: [tanstackStart(), tailwindcss(), react()],
+  plugins: [
+    tanstackStart({
+      spa: {
+        enabled: true,
+        prerender: { outputPath: "/index" },
+      },
+    }),
+    tailwindcss(),
+    react(),
+  ],
   optimizeDeps: {
     include: ["@blocknote/core", "@blocknote/react", "@blocknote/shadcn", "@excalidraw/excalidraw"],
     rolldownOptions: {

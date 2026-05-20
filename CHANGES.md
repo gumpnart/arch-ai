@@ -1,5 +1,45 @@
 # Change Log
 
+## 2026-05-20 — feat: Prepare arch-doc-web for Vercel deployment
+
+### Overview
+
+Configured `arch-doc-web` (`web/`) for deployment to Vercel as a static SPA with Edge Function API routes.
+
+### Changes
+
+| File | Description |
+|---|---|
+| `web/vercel.json` | Build settings (`dist/client` output), SPA fallback rewrite, COOP/COEP headers |
+| `web/vite.config.ts` | Enabled TanStack Start SPA mode — pre-renders `index.html` shell at build time |
+| `web/api/kroki/render.ts` | Vercel Edge Function: proxies Kroki diagram requests (defaults to `https://kroki.io`) |
+| `web/api/ai/chat.ts` | Vercel Edge Function: Gemini SSE streaming using raw REST API (no SDK dependency) |
+| `web/api/health.ts` | Vercel Edge Function: health check endpoint |
+| `web/.env.example` | Documents required environment variables |
+| `web/.gitignore` | Added `.env.local`, `dist/`, `.vercel/` |
+| `web/package.json` | Moved `@rolldown/binding-darwin-arm64` to `optionalDependencies` (macOS-only) |
+| `web/src/routes/api/kroki/render.ts` | Updated default Kroki URL to `https://kroki.io` (was `localhost:8000`) |
+
+### Deployment
+
+1. **Link project on Vercel** pointing to the `web/` subdirectory (Root Directory: `web`)
+2. **Set environment variables** in Vercel dashboard:
+   - `GEMINI_API_KEY` — required for AI assistant
+   - `GEMINI_MODEL` — optional (default: `gemma-4-31b-it`)
+   - `KROKI_URL` — optional (default: `https://kroki.io`)
+3. **Deploy** — `pnpm build` runs `vite build` which produces `dist/client/` (static) + pre-rendered `index.html`
+
+### Architecture (Vercel)
+
+- Static assets served from `dist/client/` by Vercel CDN
+- `/api/kroki/render` → Edge Function (Kroki proxy)
+- `/api/ai/chat` → Edge Function (Gemini/Ollama SSE stream)
+- `/api/health` → Edge Function
+- All other routes → `index.html` (client-side TanStack Router)
+- File operations remain 100% client-side via File System Access API
+
+---
+
 ## 2026-05-20 — feat: Replace all SVG icons with Phosphor Icons
 
 ### Overview

@@ -82,6 +82,26 @@ The web editor supports two modes:
 
 > Drag-and-drop and inline CRUD actions (rename, delete, new file, new folder) also work in **vault mode** via the server API.
 
+### Vercel Deployment
+
+`arch-doc-web` can be deployed to Vercel as a static SPA with Edge Function API routes.
+
+**Project settings:**
+- Root Directory: `web`
+- Build Command: `pnpm run build`
+- Output Directory: `dist/client`
+- Install Command: `pnpm install`
+
+**Environment variables to set in Vercel dashboard:**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Yes (for AI) | — | Gemini streaming AI assistant |
+| `GEMINI_MODEL` | No | `gemma-4-31b-it` | Model name |
+| `KROKI_URL` | No | `https://kroki.io` | Diagram rendering service |
+
+> Local dev still uses `vite dev` with the Docker Kroki stack on `localhost:8000`. Set `KROKI_URL=http://localhost:8000` in `web/.env.local` to override.
+
 ### MCP Config (Claude Code CLI)
 
 `.claude/mcp.json` is pre-configured for both `arch-doc-mcp` and `kroki-mcp`.
