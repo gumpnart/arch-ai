@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Mockup 1 — Empty State</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    .empty-state-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: var(--bg-editor);
+    }
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      gap: var(--sp-4); text-align: center; max-width: 320px;
+    }
+    .empty-icon-wrap {
+      width: 80px; height: 80px; background: var(--bg-panel);
+      border: 1px solid var(--border); border-radius: var(--r-xl);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .empty-title { font-size: var(--text-md); font-weight: 500; color: var(--text-secondary); }
+    .empty-cta {
+      padding: 9px 22px; background: var(--accent); color: #fff;
+      border-radius: var(--r-lg); font-size: var(--text-base); font-weight: 600;
+      transition: background .15s; display: flex; align-items: center; gap: var(--sp-2);
+    }
+    .empty-cta:hover { background: var(--accent-hover); }
+    .empty-hint { font-size: var(--text-xs); color: var(--text-muted); line-height: 1.8; }
+    .empty-hint code {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      padding: 1px 5px; border-radius: var(--r-xs);
+      font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    }
+    .sidebar-no-folder {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: var(--sp-3); padding: var(--sp-6);
+    }
+    .sidebar-empty-icon {
+      width: 40px; height: 40px; background: var(--bg-sidebar-hover);
+      border-radius: var(--r-lg); display: flex; align-items: center; justify-content: center;
+      color: var(--text-sidebar-muted);
+    }
+    .sidebar-empty-text { font-size: var(--text-xs); color: var(--text-sidebar-muted); text-align: center; line-height: 1.6; }
+    .label-tag {
+      position: absolute; top: 8px; left: 8px;
+      background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: var(--r-full); letter-spacing: .04em;
+    }
+  </style>
+</head>
+<body>
+<div class="app" style="position:relative;">
+  <div class="label-tag">01 — Empty State</div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <button class="nav-btn disabled">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="nav-btn disabled">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <div class="nav-divider"></div>
+    <div class="nav-breadcrumb">
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <span class="nav-search-placeholder">Search files… (Ctrl+P)</span>
+    </div>
+    <button class="nav-btn" style="color:#52525b">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+  </nav>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <span class="sidebar-title" style="color:var(--text-sidebar-muted)">No folder open</span>
+          <div class="view-tabs">
+            <button class="view-tab active" title="Explorer">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            </button>
+            <button class="view-tab" title="Search">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="sidebar-actions">
+          <button class="action-btn primary-action">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Open Folder
+          </button>
+        </div>
+      </div>
+      <div class="sidebar-no-folder">
+        <div class="sidebar-empty-icon">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <p class="sidebar-empty-text">Open a folder to browse<br>your documents</p>
+      </div>
+    </aside>
+
+    <!-- Main empty state -->
+    <div class="empty-state-wrap">
+      <div class="empty-state">
+        <div class="empty-icon-wrap">
+          <svg width="40" height="40" fill="none" stroke="#d4d4d8" stroke-width="1.5" viewBox="0 0 24 24">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            <line x1="12" y1="11" x2="12" y2="17"/>
+            <line x1="9" y1="14" x2="15" y2="14"/>
+          </svg>
+        </div>
+        <p class="empty-title">Open a local folder to get started</p>
+        <button class="empty-cta">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Open Local Folder
+        </button>
+        <p class="empty-hint">
+          <code>Ctrl+P</code> quick open &nbsp;·&nbsp; <code>Ctrl+Shift+F</code> search content<br>
+          <code>Alt+←</code> / <code>Alt+→</code> file history
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

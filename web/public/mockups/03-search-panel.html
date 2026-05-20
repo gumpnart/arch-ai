@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Mockup 3 — Content Search</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    .label-tag {
+      position: absolute; top: 8px; right: 8px; z-index: 10;
+      background: #7c3aed; color: #fff;
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: var(--r-full); letter-spacing: .04em;
+    }
+    .search-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-panel); }
+    .search-sidebar { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .match { background: #fef08a33; color: #ca8a04; border-radius: 2px; padding: 0 1px; }
+    .result-count { font-size: var(--text-xs); color: var(--text-sidebar-muted); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border-darker); }
+    .callout { background: var(--accent-subtle); border-left: 3px solid var(--accent); border-radius: 0 var(--r-md) var(--r-md) 0; padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4); }
+    .callout p { color: var(--accent-text); margin: 0; font-size: var(--text-md); }
+    .inline-code { background: #f4f4f5; border: 1px solid var(--border); padding: 1px 5px; border-radius: var(--r-xs); font-family: monospace; font-size: 12px; color: #be123c; }
+    .highlight-line { background: #fef08a22; border-left: 2px solid #ca8a04; padding-left: calc(var(--sp-4) - 2px); }
+  </style>
+</head>
+<body>
+<div class="app" style="position:relative;">
+  <div class="label-tag">03 — Content Search</div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <button class="nav-btn">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="nav-btn disabled">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <div class="nav-divider"></div>
+    <div class="nav-breadcrumb">
+      <span style="color:var(--text-sidebar-muted);font-size:12px;">my-vault</span>
+      <span class="crumb-sep">›</span>
+      <span style="color:var(--text-sidebar-muted);font-size:12px;">Architecture</span>
+      <span class="crumb-sep">›</span>
+      <span class="crumb-current">system-overview</span>
+    </div>
+    <button class="nav-btn" style="color:#52525b">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+  </nav>
+
+  <div class="layout">
+    <!-- Sidebar — Search view -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <span class="sidebar-title">SEARCH</span>
+          <div class="view-tabs">
+            <button class="view-tab"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+            <button class="view-tab active"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-sidebar">
+        <div class="search-input-wrap">
+          <input class="search-input" value="gateway" placeholder="Search content…"/>
+        </div>
+        <div class="search-options">
+          <button class="search-opt" title="Case sensitive">Aa</button>
+          <button class="search-opt" title="Whole word">Ab|</button>
+          <button class="search-opt active" title="Regex">.*</button>
+        </div>
+        <div class="result-count">5 results in 3 files</div>
+        <div class="search-results">
+
+          <!-- Result 1 -->
+          <div class="search-result-file">
+            <div class="search-result-header">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              system-overview.md
+              <span style="margin-left:auto;font-size:10px;color:var(--text-sidebar-muted);">3</span>
+            </div>
+            <div class="search-result-lines">
+              <div class="search-result-line">12│ All requests enter through the API <mark>Gateway</mark>,</div>
+              <div class="search-result-line">18│ <mark>Gateway</mark> handles rate limiting and auth</div>
+              <div class="search-result-line">34│ Browser → <mark>Gateway</mark> → Auth → API</div>
+            </div>
+          </div>
+
+          <!-- Result 2 -->
+          <div class="search-result-file">
+            <div class="search-result-header">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              auth-flow.md
+              <span style="margin-left:auto;font-size:10px;color:var(--text-sidebar-muted);">1</span>
+            </div>
+            <div class="search-result-lines">
+              <div class="search-result-line">7│ Token validated by <mark>Gateway</mark> middleware</div>
+            </div>
+          </div>
+
+          <!-- Result 3 -->
+          <div class="search-result-file">
+            <div class="search-result-header">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              sad-template.md
+              <span style="margin-left:auto;font-size:10px;color:var(--text-sidebar-muted);">1</span>
+            </div>
+            <div class="search-result-lines">
+              <div class="search-result-line">22│ Define <mark>Gateway</mark> routing strategy here</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </aside>
+
+    <!-- Editor — showing match highlighted -->
+    <main class="main">
+      <div class="editor-toolbar">
+        <div class="toolbar-path">Architecture/system-overview.md</div>
+        <span class="status-badge stable">● stable</span>
+        <button class="save-btn disabled">Save</button>
+      </div>
+      <div class="editor-content">
+        <h1>System Overview</h1>
+        <div class="callout">
+          <p>This document describes the high-level architecture of the platform, covering key components, data flows, and integration points.</p>
+        </div>
+        <h2>Architecture</h2>
+        <p>The platform is composed of three primary layers: the <span class="inline-code">API Gateway</span>, the <span class="inline-code">Service Mesh</span>, and the <span class="inline-code">Data Layer</span>.</p>
+        <h2>Data Flow</h2>
+        <p class="highlight-line">All client requests enter through the API <mark style="background:#fef08a;padding:0 2px;border-radius:2px;">Gateway</mark>, which handles rate limiting, authentication delegation to the Auth Service, and routing to downstream microservices.</p>
+        <p>The <mark style="background:#fef08a;padding:0 2px;border-radius:2px;">Gateway</mark> handles rate limiting and auth before forwarding to services.</p>
+        <h2>Diagram</h2>
+        <p>Browser → <mark style="background:#fef08a;padding:0 2px;border-radius:2px;">Gateway</mark> → Auth → API</p>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Mockup 4 — Drawing Editor</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    .label-tag {
+      position: absolute; top: 8px; right: 8px; z-index: 10;
+      background: #d97706; color: #fff;
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: var(--r-full); letter-spacing: .04em;
+    }
+    /* Drawing toolbar */
+    .draw-toolbar {
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: 0 var(--sp-4); height: 44px;
+      background: #fff; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .draw-title { font-size: var(--text-base); font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: var(--sp-2); }
+    .draw-title svg { color: var(--status-draft); }
+    .tool-sep { width: 1px; height: 20px; background: var(--border); margin: 0 var(--sp-1); }
+    .tool-group { display: flex; gap: 2px; }
+    .tool-btn {
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--r-md); color: var(--text-secondary); background: transparent;
+      transition: background .1s, color .1s;
+    }
+    .tool-btn:hover { background: var(--bg-panel); color: var(--text-primary); }
+    .tool-btn.active { background: var(--accent-subtle); color: var(--accent); }
+    .draw-spacer { flex: 1; }
+    .unsaved-indicator { font-size: var(--text-xs); color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+    .unsaved-dot { width: 6px; height: 6px; background: var(--warning); border-radius: 50%; }
+
+    /* Canvas -->*/
+    .draw-canvas { flex: 1; background: #f8f9fa; position: relative; overflow: hidden; }
+    .canvas-grid {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, #d4d4d8 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Floating tool palette (Excalidraw-style) -->*/
+    .tool-palette {
+      position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
+      background: #fff; border: 1px solid var(--border); border-radius: var(--r-xl);
+      padding: 6px; display: flex; align-items: center; gap: 2px;
+      box-shadow: var(--shadow-md);
+    }
+    .palette-btn {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      border-radius: var(--r-lg); color: var(--text-secondary); background: transparent;
+      transition: background .1s;
+    }
+    .palette-btn:hover { background: var(--bg-panel); }
+    .palette-btn.active { background: var(--accent-subtle); color: var(--accent); }
+    .palette-sep { width: 1px; height: 24px; background: var(--border); margin: 0 2px; }
+
+    /* Floating zoom controls -->*/
+    .zoom-controls {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #fff; border: 1px solid var(--border); border-radius: var(--r-full);
+      padding: 4px 8px; display: flex; align-items: center; gap: var(--sp-1);
+      box-shadow: var(--shadow-sm); font-size: var(--text-sm); color: var(--text-secondary);
+    }
+    .zoom-btn { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm); }
+    .zoom-btn:hover { background: var(--bg-panel); }
+    .zoom-val { font-size: var(--text-sm); font-weight: 500; color: var(--text-primary); padding: 0 4px; }
+
+    /* Mock drawing elements -->*/
+    .draw-el {
+      position: absolute;
+      border-radius: var(--r-md);
+    }
+    .draw-el-text {
+      position: absolute; font-size: 12px; color: var(--text-primary); font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* Properties panel -->*/
+    .props-panel {
+      width: 220px; flex-shrink: 0;
+      background: #fff; border-left: 1px solid var(--border);
+      padding: var(--sp-4); overflow: auto;
+    }
+    .props-section { margin-bottom: var(--sp-5); }
+    .props-label { font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; margin-bottom: var(--sp-3); }
+    .props-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-2); }
+    .props-row label { font-size: var(--text-xs); color: var(--text-secondary); width: 60px; flex-shrink: 0; }
+    .props-row input[type=text], .props-row select {
+      flex: 1; font-size: var(--text-xs); padding: 4px 6px;
+      border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--bg-input); color: var(--text-primary);
+    }
+    .color-swatches { display: flex; gap: 4px; flex-wrap: wrap; }
+    .color-swatch {
+      width: 20px; height: 20px; border-radius: var(--r-sm);
+      border: 2px solid transparent; cursor: pointer;
+    }
+    .color-swatch.active { border-color: var(--accent); }
+    .stroke-options { display: flex; gap: 4px; }
+    .stroke-opt {
+      flex: 1; height: 28px; display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer;
+    }
+    .stroke-opt.active { background: var(--accent-subtle); border-color: var(--accent-border); }
+    .opacity-wrap { display: flex; align-items: center; gap: var(--sp-2); }
+    .opacity-wrap input[type=range] { flex: 1; }
+    .opacity-wrap span { font-size: var(--text-xs); color: var(--text-secondary); width: 28px; text-align: right; }
+  </style>
+</head>
+<body>
+<div class="app" style="position:relative;">
+  <div class="label-tag">04 — Drawing Editor</div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <button class="nav-btn">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <button class="nav-btn disabled">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+    <div class="nav-divider"></div>
+    <div class="nav-breadcrumb">
+      <span style="color:var(--text-sidebar-muted);font-size:12px;">my-vault</span>
+      <span class="crumb-sep">›</span>
+      <span class="crumb-current">architecture-draft.excalidraw</span>
+    </div>
+    <button class="nav-btn" style="color:#52525b">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+  </nav>
+
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title-row">
+          <svg width="13" height="13" fill="none" stroke="#71717a" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span class="sidebar-title">my-vault</span>
+          <div class="view-tabs">
+            <button class="view-tab active"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+            <button class="view-tab"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+          </div>
+        </div>
+        <div class="sidebar-actions">
+          <button class="action-btn"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg></button>
+          <button class="action-btn"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+          <button class="action-btn"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg></button>
+        </div>
+      </div>
+
+      <!-- Open Editors -->
+      <div class="open-editors">
+        <div class="section-label">OPEN EDITORS <span>▾</span></div>
+        <div class="file-row active">
+          <svg class="file-icon" width="12" height="12" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span class="file-name">architecture-draft.excalidraw</span>
+          <span class="close-btn">✕</span>
+        </div>
+        <div class="file-row">
+          <svg class="file-icon" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <span class="file-name">system-overview.md</span>
+          <span class="close-btn">✕</span>
+        </div>
+      </div>
+
+      <!-- File tree -->
+      <div class="file-tree">
+        <div class="tree-dir">
+          <div class="tree-dir-label">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            <svg width="12" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="1" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Architecture
+          </div>
+          <div class="tree-dir-children">
+            <div class="tree-file active">
+              <svg width="12" height="12" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              architecture-draft.excalidraw
+            </div>
+            <div class="tree-file">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              system-overview.md
+            </div>
+          </div>
+        </div>
+        <div class="tree-dir">
+          <div class="tree-dir-label">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+            <svg width="12" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="1" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Flows
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Drawing area -->
+    <main class="main" style="flex-direction:column;">
+      <!-- Drawing toolbar -->
+      <div class="draw-toolbar">
+        <div class="draw-title">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          architecture-draft
+        </div>
+        <div class="tool-sep"></div>
+        <div class="unsaved-indicator"><div class="unsaved-dot"></div> Unsaved changes</div>
+        <div class="draw-spacer"></div>
+        <button class="save-btn">Save  <span style="opacity:.6;font-weight:400;font-size:11px;">Ctrl+S</span></button>
+        <div class="tool-sep"></div>
+        <button class="tool-btn" title="Export">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+
+      <!-- Canvas -->
+      <div class="draw-canvas" style="flex:1;position:relative;">
+        <div class="canvas-grid"></div>
+
+        <!-- Floating tool palette -->
+        <div class="tool-palette">
+          <button class="palette-btn active" title="Select">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 3l14 9-7 1-4 7z"/></svg>
+          </button>
+          <div class="palette-sep"></div>
+          <button class="palette-btn" title="Rectangle">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+          </button>
+          <button class="palette-btn" title="Ellipse">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7"/></svg>
+          </button>
+          <button class="palette-btn" title="Diamond">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="12 2 22 12 12 22 2 12"/></svg>
+          </button>
+          <button class="palette-btn" title="Arrow">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+          <button class="palette-btn" title="Line">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+          </button>
+          <button class="palette-btn" title="Text">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          </button>
+          <div class="palette-sep"></div>
+          <button class="palette-btn" title="Hand">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+          </button>
+        </div>
+
+        <!-- Mock drawing elements on canvas -->
+        <svg style="position:absolute;inset:0;width:100%;height:100%;" viewBox="0 0 900 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Client -->
+          <rect x="60" y="180" width="120" height="60" rx="8" fill="#eff6ff" stroke="#bfdbfe" stroke-width="1.5"/>
+          <text x="120" y="208" text-anchor="middle" font-size="13" font-weight="600" fill="#1e40af" font-family="Inter,sans-serif">Browser</text>
+          <text x="120" y="225" text-anchor="middle" font-size="10" fill="#60a5fa" font-family="Inter,sans-serif">Client</text>
+
+          <!-- Arrow 1 -->
+          <path d="M180 210 L240 210" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+          <text x="210" y="204" text-anchor="middle" font-size="9" fill="#94a3b8" font-family="Inter,sans-serif">HTTPS</text>
+
+          <!-- Gateway -->
+          <rect x="240" y="160" width="140" height="100" rx="8" fill="#f0fdf4" stroke="#86efac" stroke-width="1.5"/>
+          <text x="310" y="200" text-anchor="middle" font-size="13" font-weight="600" fill="#166534" font-family="Inter,sans-serif">API Gateway</text>
+          <text x="310" y="217" text-anchor="middle" font-size="10" fill="#4ade80" font-family="Inter,sans-serif">Rate limiting · Auth</text>
+          <text x="310" y="232" text-anchor="middle" font-size="10" fill="#4ade80" font-family="Inter,sans-serif">Routing · TLS</text>
+
+          <!-- Arrow to Auth -->
+          <path d="M380 188 L450 148" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+          <!-- Arrow to Services -->
+          <path d="M380 210 L450 210" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+          <!-- Arrow to MCP -->
+          <path d="M380 232 L450 272" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+
+          <!-- Auth Service -->
+          <rect x="450" y="108" width="130" height="60" rx="8" fill="#fdf4ff" stroke="#e9d5ff" stroke-width="1.5"/>
+          <text x="515" y="136" text-anchor="middle" font-size="13" font-weight="600" fill="#7e22ce" font-family="Inter,sans-serif">Auth Service</text>
+          <text x="515" y="153" text-anchor="middle" font-size="10" fill="#c084fc" font-family="Inter,sans-serif">JWT · Sessions</text>
+
+          <!-- API Service -->
+          <rect x="450" y="180" width="130" height="60" rx="8" fill="#fff7ed" stroke="#fed7aa" stroke-width="1.5"/>
+          <text x="515" y="208" text-anchor="middle" font-size="13" font-weight="600" fill="#9a3412" font-family="Inter,sans-serif">API Service</text>
+          <text x="515" y="225" text-anchor="middle" font-size="10" fill="#fb923c" font-family="Inter,sans-serif">REST · GraphQL</text>
+
+          <!-- Worker -->
+          <rect x="450" y="252" width="130" height="60" rx="8" fill="#fafafa" stroke="#e4e4e7" stroke-width="1.5"/>
+          <text x="515" y="280" text-anchor="middle" font-size="13" font-weight="600" fill="#3f3f46" font-family="Inter,sans-serif">Worker</text>
+          <text x="515" y="297" text-anchor="middle" font-size="10" fill="#a1a1aa" font-family="Inter,sans-serif">BullMQ · Cron</text>
+
+          <!-- Arrow to DB -->
+          <path d="M580 210 L650 210" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+          <path d="M580 282 L650 282" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#a1)"/>
+
+          <!-- Postgres -->
+          <rect x="650" y="180" width="120" height="60" rx="8" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1.5"/>
+          <text x="710" y="208" text-anchor="middle" font-size="13" font-weight="600" fill="#075985" font-family="Inter,sans-serif">PostgreSQL</text>
+          <text x="710" y="225" text-anchor="middle" font-size="10" fill="#38bdf8" font-family="Inter,sans-serif">Primary DB</text>
+
+          <!-- Redis -->
+          <rect x="650" y="252" width="120" height="60" rx="8" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+          <text x="710" y="280" text-anchor="middle" font-size="13" font-weight="600" fill="#991b1b" font-family="Inter,sans-serif">Redis</text>
+          <text x="710" y="297" text-anchor="middle" font-size="10" fill="#f87171" font-family="Inter,sans-serif">Cache · Queues</text>
+
+          <!-- Selection handles on Gateway (selected element) -->
+          <rect x="236" y="156" width="148" height="108" rx="10" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 2" fill="none"/>
+          <rect x="232" y="152" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="376" y="152" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="232" y="256" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="376" y="256" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="304" y="152" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="304" y="256" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="232" y="204" width="8" height="8" rx="2" fill="#2563eb"/>
+          <rect x="376" y="204" width="8" height="8" rx="2" fill="#2563eb"/>
+
+          <defs>
+            <marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+              <path d="M0 0 L7 3.5 L0 7z" fill="#94a3b8"/>
+            </marker>
+          </defs>
+        </svg>
+
+        <!-- Zoom controls -->
+        <div class="zoom-controls">
+          <button class="zoom-btn">−</button>
+          <span class="zoom-val">100%</span>
+          <button class="zoom-btn">+</button>
+          <div style="width:1px;height:16px;background:var(--border);margin:0 4px;"></div>
+          <button class="zoom-btn" title="Reset">
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Properties panel -->
+    <aside class="props-panel">
+      <div class="props-section">
+        <div class="props-label">Stroke</div>
+        <div class="color-swatches">
+          <div class="color-swatch active" style="background:#09090b;border-color:var(--accent)"></div>
+          <div class="color-swatch" style="background:#2563eb"></div>
+          <div class="color-swatch" style="background:#16a34a"></div>
+          <div class="color-swatch" style="background:#dc2626"></div>
+          <div class="color-swatch" style="background:#d97706"></div>
+          <div class="color-swatch" style="background:#7c3aed"></div>
+          <div class="color-swatch" style="background:#e4e4e7;border:1px solid var(--border)"></div>
+        </div>
+      </div>
+      <div class="props-section">
+        <div class="props-label">Background</div>
+        <div class="color-swatches">
+          <div class="color-swatch" style="background:transparent;border:1px dashed var(--border)"></div>
+          <div class="color-swatch active" style="background:#f0fdf4;border-color:var(--accent)"></div>
+          <div class="color-swatch" style="background:#eff6ff"></div>
+          <div class="color-swatch" style="background:#fdf4ff"></div>
+          <div class="color-swatch" style="background:#fafafa;border:1px solid var(--border)"></div>
+          <div class="color-swatch" style="background:#fff7ed"></div>
+        </div>
+      </div>
+      <div class="props-section">
+        <div class="props-label">Stroke style</div>
+        <div class="stroke-options">
+          <div class="stroke-opt active"><svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#09090b" stroke-width="2"/></svg></div>
+          <div class="stroke-opt"><svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#09090b" stroke-width="2" stroke-dasharray="4 2"/></svg></div>
+          <div class="stroke-opt"><svg width="24" height="4"><line x1="0" y1="2" x2="24" y2="2" stroke="#09090b" stroke-width="2" stroke-dasharray="1 3"/></svg></div>
+        </div>
+      </div>
+      <div class="props-section">
+        <div class="props-label">Opacity</div>
+        <div class="opacity-wrap">
+          <input type="range" min="0" max="100" value="100"/>
+          <span>100%</span>
+        </div>
+      </div>
+      <div class="props-section">
+        <div class="props-label">Position</div>
+        <div class="props-row"><label>X</label><input type="text" value="240"/></div>
+        <div class="props-row"><label>Y</label><input type="text" value="160"/></div>
+        <div class="props-row"><label>W</label><input type="text" value="140"/></div>
+        <div class="props-row"><label>H</label><input type="text" value="100"/></div>
+      </div>
+      <div class="props-section">
+        <div class="props-label">Font</div>
+        <div class="props-row"><label>Size</label><input type="text" value="13"/></div>
+        <div class="props-row"><label>Align</label>
+          <select><option>Center</option><option>Left</option><option>Right</option></select>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+</body>
+</html>
