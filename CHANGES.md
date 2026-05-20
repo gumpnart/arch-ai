@@ -1,5 +1,74 @@
 # Change Log
 
+## 2026-05-20 — feat: Replace all SVG icons with Phosphor Icons
+
+### Overview
+
+Replaced every inline SVG icon in `arch-doc-web` with components from `@phosphor-icons/react` (v2.1.10). All icons use Regular weight at consistent sizing.
+
+### Dependency
+
+| Package | Version |
+|---|---|
+| `@phosphor-icons/react` | `^2.1.10` |
+
+### Icons replaced
+
+| Component | Icons |
+|---|---|
+| `web/src/App.tsx` | `House` (Explorer), `MagnifyingGlass` (Search), `SquaresFour` (Templates), `Lightning` (Quick Open), `FilePlus` (New markdown), `PenNib` (New drawing), `FolderOpen` (Open folder) |
+| `web/src/components/Editor/EditorToolbar.tsx` | `CaretLeft`, `CaretRight` (back/forward nav arrows) |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | `CaretLeft`, `CaretRight` (back/forward nav arrows) |
+| `web/src/components/Sidebar/OpenEditors.tsx` | `FileText` (markdown files), `PenNib` (drawing files), `X` (close tab) |
+
+---
+
+## 2026-05-20 — feat: Full design system with shared UI primitives
+
+### Overview
+
+Built a complete design system on top of the Alt D layout. Added shared React primitive components (`Button`, `Input`, `Badge`, `SectionLabel`) using CSS custom properties. Swept every component in the codebase to replace hardcoded hex colors with design tokens. Status semantic colors now defined as CSS variables and used consistently.
+
+### New files
+
+| File | Description |
+|---|---|
+| `web/src/components/ui/Button.tsx` | Variants: primary, secondary, ghost, icon; sizes: sm, md |
+| `web/src/components/ui/Input.tsx` | Standard text input with focus ring, font tokens |
+| `web/src/components/ui/Badge.tsx` | Variants: status (with `StatusBadge`), count, tag |
+| `web/src/components/ui/SectionLabel.tsx` | Panel section header using tokens |
+
+### Token additions (`index.css`)
+
+Typography scale (`--text-xs` → `--text-lg`), spacing grid (`--sp-1` → `--sp-10`), radius scale (`--r-sm` → `--r-full`), shadow tokens (`--shadow-sm/md/lg/accent`), status semantic colors (`--status-draft-bg/text`, etc.)
+
+### Components updated
+
+`DocStatusBadge`, `FileTree`, `ContentSearchPanel`, `SearchPalette`, `EditorToolbar`, `FrontmatterPanel`, `OpenEditors`, `App`
+
+---
+
+## 2026-05-20 — feat: Alt D Icon Rail UI redesign
+
+### Overview
+
+Implemented the **Alt D — Icon Rail** design system across `arch-doc-web`. Replaces the previous dark top navbar + wide sidebar with a Linear-style narrow icon rail (52px) + file panel (220px) + focused white editor area with breadcrumb topbar. Includes a full design token system via CSS custom properties.
+
+### Changes
+
+| File | Change |
+|---|---|
+| `web/src/index.css` | Added Alt D design system CSS variables: rail, panel, editor, color palette, typography tokens |
+| `web/src/App.tsx` | Full layout rewrite — removes `NavBar`, adds `RailIcon` component, 3-column shell (icon rail + file panel + editor area), `PanelEmptyState`, `EditorEmptyState` |
+| `web/src/components/Editor/EditorToolbar.tsx` | Rewritten — breadcrumb display with back/forward nav arrows, status chip, status select, save button; accepts `folderName`, `canGoBack/Forward`, `onGoBack/Forward` props |
+| `web/src/components/Editor/DocEditor.tsx` | Added `DocEditorNavProps` interface; threads `folderName` and nav props to `EditorInner` → `EditorToolbar`; editor content now max-width 740px centered |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | Updated toolbar to Alt D style with breadcrumb + nav arrows; accepts `DocEditorNavProps` |
+| `web/src/components/Editor/FrontmatterPanel.tsx` | Restyled to use design tokens — "Properties" header, tag chips, consistent input radius |
+| `web/src/components/Sidebar/OpenEditors.tsx` | Rewritten with Alt D panel styling — section label, file icon SVGs, accent-bg active row, SVG close button |
+| `web/public/mockups/` | Added 4 original + 4 alternative HTML/CSS design mockups + PNG screenshots |
+
+---
+
 ## 2026-05-20 — feat: Excalidraw editor in arch-doc-web
 
 ### Overview

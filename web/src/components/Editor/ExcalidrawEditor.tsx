@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef, Suspense, lazy } from "react";
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import type { ExcalidrawCanvasHandle } from "./ExcalidrawCanvas.js";
-import type { FileOps } from "./DocEditor.js";
+import type { FileOps, DocEditorNavProps } from "./DocEditor.js";
 
 // Lazy-load to avoid SSR evaluation of browser-only Excalidraw code
 const LazyCanvas = lazy(() =>
   import("./ExcalidrawCanvas.js").then((m) => ({ default: m.ExcalidrawCanvas }))
 );
 
-interface ExcalidrawEditorProps {
+interface ExcalidrawEditorProps extends DocEditorNavProps {
   filePath: string;
   fileOps: FileOps;
   onSaveSuccess?: () => void;
@@ -19,6 +20,11 @@ export function ExcalidrawEditor({
   filePath,
   fileOps,
   onSaveSuccess,
+  folderName,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
 }: ExcalidrawEditorProps) {
   const [initialData, setInitialData] = useState<object | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,30 +109,39 @@ export function ExcalidrawEditor({
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* ── Toolbar ── */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 12px",
-          borderBottom: "1px solid #e0e0e0",
-          background: "#fafafa",
-          flexShrink: 0,
-          fontSize: 13,
-        }}
-      >
-        <span style={{ flex: 1, fontWeight: 500, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          🎨 {displayName}
-        </span>
+      <div style={{
+        height: "var(--editor-topbar-h)",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 24px",
+        gap: 10,
+        borderBottom: "1px solid var(--border)",
+        background: "var(--editor-bg)",
+        flexShrink: 0,
+      }}>
+        {/* Back / Forward */}
+        <ExNavArrow onClick={onGoBack} disabled={!canGoBack} title="Go back (Alt+←)" dir="left" />
+        <ExNavArrow onClick={onGoForward} disabled={!canGoForward} title="Go forward (Alt+→)" dir="right" />
+
+        {/* Breadcrumb */}
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", fontSize: 13 }}>
+          {folderName && (
+            <>
+              <span style={{ color: "var(--text-3)", fontSize: 12, whiteSpace: "nowrap" }}>{folderName}</span>
+              <span style={{ color: "#d4d4d8", fontSize: 11 }}>›</span>
+            </>
+          )}
+          <span style={{ color: "var(--text-1)", fontWeight: 600, whiteSpace: "nowrap" }}>
+            {displayName}
+            {isDirty && <span style={{ color: "#f59e0b", marginLeft: 4, fontSize: 10 }}>●</span>}
+          </span>
+        </div>
 
         {saveStatus === "error" && (
           <span style={{ color: "#dc2626", fontSize: 12 }}>Save failed!</span>
         )}
-        {isDirty && saveStatus !== "error" && (
-          <span style={{ color: "#6b7280", fontSize: 12 }}>● Unsaved</span>
-        )}
         {saveStatus === "saved" && (
-          <span style={{ color: "#16a34a", fontSize: 12 }}>Saved ✓</span>
+          <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 500 }}>Saved</span>
         )}
 
         <button
@@ -135,12 +150,15 @@ export function ExcalidrawEditor({
           title="Save (Ctrl+S)"
           style={{
             fontSize: 12,
-            padding: "4px 12px",
-            background: isDirty || saveStatus === "error" ? "#2563eb" : "#e5e7eb",
-            color: isDirty || saveStatus === "error" ? "#fff" : "#9ca3af",
+            padding: "6px 16px",
+            background: isDirty || saveStatus === "error" ? "var(--accent)" : "var(--hover-bg)",
+            color: isDirty || saveStatus === "error" ? "#fff" : "var(--text-3)",
             border: "none",
-            borderRadius: 4,
+            borderRadius: 8,
             cursor: isDirty || saveStatus === "error" ? "pointer" : "default",
+            fontWeight: 600,
+            fontFamily: "var(--font-sans)",
+            boxShadow: isDirty || saveStatus === "error" ? "0 1px 3px rgba(37,99,235,.3)" : "none",
             transition: "background 0.15s",
           }}
         >
@@ -159,6 +177,47 @@ export function ExcalidrawEditor({
         </Suspense>
       </div>
     </div>
+  );
+}
+
+function ExNavArrow({
+  onClick,
+  disabled,
+  title,
+  dir,
+}: {
+  onClick?: () => void;
+  disabled?: boolean;
+  title?: string;
+  dir: "left" | "right";
+}) {
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      title={title}
+      style={{
+        width: 26,
+        height: 26,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: "none",
+        borderRadius: 6,
+        background: "none",
+        color: disabled ? "var(--border-mid)" : "var(--text-3)",
+        cursor: disabled ? "default" : "pointer",
+        padding: 0,
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!disabled) (e.currentTarget as HTMLButtonElement).style.background = "var(--hover-bg)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLButtonElement).style.background = "none";
+      }}
+    >
+      {dir === "left" ? <CaretLeft size={14} /> : <CaretRight size={14} />}
+    </button>
   );
 }
 

@@ -22,7 +22,7 @@ GitHub Actions      CI/CD — build + deploy to GitHub Pages
   ↓
 VitePress Site       Static site — published docs
 
-Browser → web/      React + BlockNote editor (port 3000) — local folder via File System Access API, full-width diagram blocks, zoom/pan preview, Excalidraw drawing editor for .excalidraw files
+Browser → web/      React + BlockNote editor (port 3000) — Icon Rail UI (Linear-style), Phosphor Icons, local folder via File System Access API, full-width diagram blocks, zoom/pan preview, Excalidraw drawing editor for .excalidraw files
   ↓ proxy
 Kroki :8000         Diagram preview rendering
 ```

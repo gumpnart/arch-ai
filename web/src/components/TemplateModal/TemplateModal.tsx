@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
+import {
+  Compass, PlugsConnected, ClipboardText,
+  FolderPlus, FolderOpen, FileText, X,
+} from "@phosphor-icons/react";
 import { TEMPLATES, isoDate } from "../../templates/index.js";
 import type { Template } from "../../templates/index.js";
+
+const TEMPLATE_ICON_MAP: Record<string, React.ReactNode> = {
+  Compass:       <Compass size={20} />,
+  PlugsConnected: <PlugsConnected size={20} />,
+  ClipboardText: <ClipboardText size={20} />,
+};
 
 type Location = "subfolder" | "current";
 
@@ -121,13 +131,14 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
               background: "none",
               border: "none",
               cursor: "pointer",
-              fontSize: 18,
               color: "#888",
               padding: "0 4px",
               lineHeight: 1,
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            ✕
+            <X size={16} weight="bold" />
           </button>
         </div>
 
@@ -166,7 +177,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
           >
             {/* Selected template info */}
             <div>
-              <div style={{ fontSize: 22, marginBottom: 4 }}>{selected.icon}</div>
+              <div style={{ marginBottom: 4, color: "#555" }}>{TEMPLATE_ICON_MAP[selected.icon] ?? selected.icon}</div>
               <div style={{ fontWeight: 600, fontSize: 14, color: "#1a1a1a", marginBottom: 4 }}>
                 {selected.name}
               </div>
@@ -184,14 +195,14 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                 <LocationOption
                   active={location === "subfolder"}
                   onClick={() => setLocation("subfolder")}
-                  icon="📁"
+                  icon={<FolderPlus size={16} />}
                   label="New subfolder"
                   hint="Creates a new folder with the project name"
                 />
                 <LocationOption
                   active={location === "current"}
                   onClick={() => setLocation("current")}
-                  icon="📂"
+                  icon={<FolderOpen size={16} />}
                   label="Current directory"
                   hint="Places files directly in the opened folder"
                 />
@@ -250,6 +261,9 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                   <div
                     key={f}
                     style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                       fontSize: 11,
                       fontFamily: "monospace",
                       color: "#444",
@@ -259,7 +273,8 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                       textOverflow: "ellipsis",
                     }}
                   >
-                    📄 {location === "subfolder"
+                    <FileText size={11} style={{ flexShrink: 0 }} />
+                    {location === "subfolder"
                       ? `${projectName.trim() || "<name>"}/${f}`
                       : f}
                   </div>
@@ -325,7 +340,7 @@ function LocationOption({
 }: {
   active: boolean;
   onClick: () => void;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   hint: string;
 }) {
@@ -342,7 +357,7 @@ function LocationOption({
         transition: "border-color 0.1s, background 0.1s",
       }}
     >
-      <div style={{ fontSize: 16, marginBottom: 3 }}>{icon}</div>
+      <div style={{ marginBottom: 3, color: active ? "#1a73e8" : "#555" }}>{icon}</div>
       <div style={{ fontWeight: 600, fontSize: 12, color: active ? "#1a73e8" : "#1a1a1a" }}>
         {label}
       </div>
@@ -373,7 +388,7 @@ function TemplateCard({
         transition: "background 0.1s",
       }}
     >
-      <div style={{ fontSize: 18, marginBottom: 3 }}>{template.icon}</div>
+      <div style={{ marginBottom: 3, color: selected ? "#1a73e8" : "#555" }}>{TEMPLATE_ICON_MAP[template.icon] ?? template.icon}</div>
       <div style={{ fontWeight: 600, fontSize: 12, color: selected ? "#1a73e8" : "#1a1a1a" }}>
         {template.name}
       </div>

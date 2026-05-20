@@ -119,6 +119,14 @@ interface LoadState {
 
 // ── DocEditor (load + parse) ──────────────────────────────────────────────────
 
+export interface DocEditorNavProps {
+  folderName?: string;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+  onGoBack?: () => void;
+  onGoForward?: () => void;
+}
+
 export function DocEditor({
   filePath,
   onSaveSuccess,
@@ -126,6 +134,11 @@ export function DocEditor({
   fileOps,
   getStableDocsContext,
   stableCount = 0,
+  folderName,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
 }: {
   filePath: string;
   onSaveSuccess: () => void;
@@ -133,7 +146,7 @@ export function DocEditor({
   fileOps: FileOps;
   getStableDocsContext: () => Promise<string>;
   stableCount?: number;
-}) {
+} & DocEditorNavProps) {
   const [loadState, setLoadState] = useState<LoadState | null>(null);
   const [loadError, setLoadError] = useState("");
 
@@ -182,6 +195,11 @@ export function DocEditor({
       fileOps={fileOps}
       getStableDocsContext={getStableDocsContext}
       stableCount={stableCount}
+      folderName={folderName}
+      canGoBack={canGoBack}
+      canGoForward={canGoForward}
+      onGoBack={onGoBack}
+      onGoForward={onGoForward}
     />
   );
 }
@@ -196,6 +214,11 @@ function EditorInner({
   fileOps,
   getStableDocsContext,
   stableCount,
+  folderName,
+  canGoBack,
+  canGoForward,
+  onGoBack,
+  onGoForward,
 }: {
   filePath: string;
   initialFrontmatter: Frontmatter;
@@ -204,7 +227,7 @@ function EditorInner({
   fileOps: FileOps;
   getStableDocsContext: () => Promise<string>;
   stableCount: number;
-}) {
+} & DocEditorNavProps) {
   const [frontmatter, setFrontmatter] =
     useState<Frontmatter>(initialFrontmatter);
   const [isDirty, setIsDirty] = useState(false);
@@ -264,6 +287,7 @@ function EditorInner({
       >
         <EditorToolbar
           filePath={filePath}
+          folderName={folderName}
           status={frontmatter.status}
           isDirty={isDirty}
           isSaving={isSaving}
@@ -272,8 +296,13 @@ function EditorInner({
             setFrontmatter((p) => ({ ...p, status }));
             setIsDirty(true);
           }}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onGoBack={onGoBack}
+          onGoForward={onGoForward}
         />
-        <div style={{ flex: 1, overflow: "auto", padding: "20px 40px" }}>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <div style={{ maxWidth: "var(--editor-max-width)", margin: "0 auto", padding: "48px 28px" }}>
           {mounted && (
             <AIAssistantContext.Provider
               value={{ getStableDocsContext, stableCount }}
@@ -335,6 +364,7 @@ function EditorInner({
               </BlockNoteView>
             </AIAssistantContext.Provider>
           )}
+          </div>
         </div>
       </div>
       <FrontmatterPanel

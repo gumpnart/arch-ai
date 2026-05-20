@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import { createPortal } from "react-dom";
+import {
+  Folder, FolderOpen, FileText, PenNib,
+  FilePlus, FolderPlus, PencilSimple, Trash,
+  Copy, Files,
+} from "@phosphor-icons/react";
 import { DocStatusBadge } from "./DocStatusBadge.js";
 import type { FileNode } from "../../api/client.js";
 
-// ── Public props ──────────────────────────────────────────────────────────────
+// ── Public props ───────────────────────────────────────────────────────────────
 
 export interface FileTreeActions {
   onNewFile?: (parentDir: string | null, name: string) => void;
@@ -10,6 +16,8 @@ export interface FileTreeActions {
   onRename?: (path: string, newName: string) => void;
   onDelete?: (path: string) => void;
   onMove?: (sourcePaths: string[], targetDir: string | null) => void;
+  onCopy?: (path: string, destDir: string | null) => void;
+  onDuplicate?: (path: string) => void;
 }
 
 interface FileTreeProps extends FileTreeActions {
@@ -18,29 +26,62 @@ interface FileTreeProps extends FileTreeActions {
   onSelect: (path: string) => void;
 }
 
-// ── DnD context (shared across all recursive nodes) ───────────────────────────
+// ── Context menu state ─────────────────────────────────────────────────────────
+
+interface CtxMenuState {
+  x: number;
+  y: number;
+  nodePath: string | null;
+  nodeType: "file" | "dir" | null;
+}
+
+type CreatingType = "md" | "excalidraw" | "dir";
+
+// ── DnD + shared UI context ────────────────────────────────────────────────────
 
 interface DnDCtxValue {
-  // Selection
   selectedPaths: Set<string>;
   toggleSelect: (path: string, multi: boolean) => void;
-  // Drag state
   draggingPaths: string[];
-  dropTargetDir: string | null | undefined; // undefined = not dragging
-  // Handlers used by every node
+  dropTargetDir: string | null | undefined;
   startDrag: (e: React.DragEvent, path: string) => void;
   endDrag: () => void;
   dirDragOver: (e: React.DragEvent, dir: string | null) => void;
   dirDrop: (e: React.DragEvent, dir: string | null) => void;
   isValidDrop: (dir: string | null) => boolean;
-  // Move callback
   onMove: FileTreeProps["onMove"];
+  // Context menu
+  ctxMenu: CtxMenuState | null;
+  openCtxMenu: (e: React.MouseEvent, nodePath: string | null, nodeType: "file" | "dir" | null) => void;
+  closeCtxMenu: () => void;
+  // Inline creating
+  creatingAt: { parentDir: string | null; type: CreatingType } | null;
+  startCreatingAt: (parentDir: string | null, type: CreatingType) => void;
+  clearCreatingAt: () => void;
+  // Inline renaming
+  renamingPath: string | null;
+  startRenaming: (path: string) => void;
+  clearRenaming: () => void;
+  // Action callbacks (forwarded to context menu)
+  onNewFile: FileTreeProps["onNewFile"];
+  onNewDir: FileTreeProps["onNewDir"];
+  onRename: FileTreeProps["onRename"];
+  onDelete: FileTreeProps["onDelete"];
+  onCopy: FileTreeProps["onCopy"];
+  onDuplicate: FileTreeProps["onDuplicate"];
 }
 
 const DnDCtx = createContext<DnDCtxValue | null>(null);
 const useDnD = () => useContext(DnDCtx)!;
 
-// ── Inline text input ─────────────────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getParentDir(path: string): string | null {
+  const i = path.lastIndexOf("/");
+  return i > 0 ? path.substring(0, i) : null;
+}
+
+// ── Inline text input ──────────────────────────────────────────────────────────
 
 function InlineInput({
   defaultValue,
@@ -74,8 +115,8 @@ function InlineInput({
         onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") onCancel(); }}
         onBlur={onCancel}
         style={{
-          width: "100%", fontSize: 12, padding: "2px 6px",
-          border: "1px solid #2563eb", borderRadius: 3,
+          width: "100%", fontSize: "var(--text-sm)", padding: "2px 6px",
+          border: "1px solid var(--accent)", borderRadius: "var(--r-sm)",
           outline: "none", background: "#fff", boxSizing: "border-box",
         }}
       />
@@ -83,7 +124,7 @@ function InlineInput({
   );
 }
 
-// ── Small icon button ─────────────────────────────────────────────────────────
+// ── Small icon button ──────────────────────────────────────────────────────────
 
 function IconBtn({ title, onClick, children }: {
   title: string;
@@ -94,30 +135,190 @@ function IconBtn({ title, onClick, children }: {
     <button
       title={title}
       onClick={onClick}
-      style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 3px", borderRadius: 3, fontSize: 11, color: "#6b7280", lineHeight: 1, flexShrink: 0 }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#111")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#6b7280")}
+      style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 3px", borderRadius: "var(--r-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)", lineHeight: 1, flexShrink: 0 }}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)")}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-3)")}
     >
       {children}
     </button>
   );
 }
 
-// ── Selection badge (shown during drag) ───────────────────────────────────────
+// ── Selection badge ────────────────────────────────────────────────────────────
 
 function SelectionBadge({ count }: { count: number }) {
   if (count < 2) return null;
   return (
     <span style={{
-      fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 8,
-      background: "#2563eb", color: "#fff", flexShrink: 0, marginLeft: 4,
+      fontSize: "var(--text-xs)", fontWeight: 700, padding: "1px 5px", borderRadius: "var(--r-full)",
+      background: "var(--accent)", color: "#fff", flexShrink: 0, marginLeft: 4,
     }}>
       {count}
     </span>
   );
 }
 
-// ── Directory node ────────────────────────────────────────────────────────────
+// ── Context menu ───────────────────────────────────────────────────────────────
+
+function ContextMenu({ state, onClose }: { state: CtxMenuState; onClose: () => void }) {
+  const dnd = useDnD();
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: state.x, y: state.y });
+
+  useEffect(() => {
+    if (!menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    let { x, y } = state;
+    if (x + rect.width > window.innerWidth - 8) x = window.innerWidth - rect.width - 8;
+    if (y + rect.height > window.innerHeight - 8) y = window.innerHeight - rect.height - 8;
+    if (x < 8) x = 8;
+    if (y < 8) y = 8;
+    setPos({ x, y });
+  }, [state.x, state.y]);
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) onClose();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("mousedown", onDown, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const createParent = state.nodeType === "dir"
+    ? state.nodePath
+    : state.nodePath ? getParentDir(state.nodePath) : null;
+
+  const nodeName = state.nodePath?.split("/").pop() ?? "";
+
+  type MenuItem =
+    | { kind: "action"; label: string; icon: React.ReactNode; action: () => void; danger?: boolean }
+    | { kind: "sep" };
+
+  const items: MenuItem[] = [];
+
+  if (dnd.onNewFile) {
+    items.push({
+      kind: "action", label: "New Markdown File", icon: <FilePlus size={13} />,
+      action: () => { dnd.startCreatingAt(createParent, "md"); onClose(); },
+    });
+    items.push({
+      kind: "action", label: "New Drawing", icon: <PenNib size={13} />,
+      action: () => { dnd.startCreatingAt(createParent, "excalidraw"); onClose(); },
+    });
+  }
+  if (dnd.onNewDir) {
+    items.push({
+      kind: "action", label: "New Folder", icon: <FolderPlus size={13} />,
+      action: () => { dnd.startCreatingAt(createParent, "dir"); onClose(); },
+    });
+  }
+
+  if (state.nodePath) {
+    items.push({ kind: "sep" });
+
+    if (dnd.onRename) {
+      items.push({
+        kind: "action", label: "Rename", icon: <PencilSimple size={13} />,
+        action: () => { dnd.startRenaming(state.nodePath!); onClose(); },
+      });
+    }
+
+    if (dnd.onCopy) {
+      items.push({
+        kind: "action", label: "Copy", icon: <Copy size={13} />,
+        action: () => { dnd.onCopy!(state.nodePath!, createParent); onClose(); },
+      });
+    }
+
+    if (dnd.onDuplicate) {
+      items.push({
+        kind: "action", label: "Duplicate", icon: <Files size={13} />,
+        action: () => { dnd.onDuplicate!(state.nodePath!); onClose(); },
+      });
+    }
+
+    items.push({ kind: "sep" });
+
+    if (dnd.onDelete) {
+      items.push({
+        kind: "action", label: "Delete", icon: <Trash size={13} />, danger: true,
+        action: () => {
+          const label = state.nodeType === "dir"
+            ? `folder "${nodeName}" and all its contents`
+            : `"${nodeName}"`;
+          if (confirm(`Delete ${label}?`)) dnd.onDelete!(state.nodePath!);
+          onClose();
+        },
+      });
+    }
+  }
+
+  // Remove leading/trailing separators
+  while (items.length && items[0].kind === "sep") items.shift();
+  while (items.length && items[items.length - 1].kind === "sep") items.pop();
+
+  if (!items.length) return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{
+        position: "fixed",
+        left: pos.x,
+        top: pos.y,
+        zIndex: 9999,
+        background: "var(--surface-1, #ffffff)",
+        border: "1px solid var(--border-1, #e5e7eb)",
+        borderRadius: "var(--r-md, 6px)",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+        minWidth: 192,
+        padding: "4px 0",
+        fontSize: "var(--text-sm, 13px)",
+        userSelect: "none",
+      }}
+    >
+      {items.map((item, i) =>
+        item.kind === "sep" ? (
+          <div key={i} style={{ height: 1, margin: "4px 0", background: "var(--border-1, #e5e7eb)" }} />
+        ) : (
+          <button
+            key={i}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={item.action}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              width: "100%", padding: "6px 12px",
+              background: "none", border: "none", cursor: "pointer",
+              fontSize: "inherit", textAlign: "left",
+              color: item.danger ? "var(--danger, #dc2626)" : "var(--text-1, #111827)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background =
+                item.danger ? "var(--danger-bg, #fef2f2)" : "var(--hover-bg, #f3f4f6)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "none";
+            }}
+          >
+            <span style={{ color: item.danger ? "var(--danger, #dc2626)" : "var(--text-3, #9ca3af)", flexShrink: 0 }}>
+              {item.icon}
+            </span>
+            {item.label}
+          </button>
+        )
+      )}
+    </div>,
+    document.body
+  );
+}
+
+// ── Directory node ─────────────────────────────────────────────────────────────
 
 function DirNode({
   node, depth, selectedFile, onSelect,
@@ -134,16 +335,20 @@ function DirNode({
   });
   useEffect(() => { localStorage.setItem(storageKey, String(expanded)); }, [expanded, storageKey]);
   const [hovered, setHovered] = useState(false);
-  const [creating, setCreating] = useState<"file" | "dir" | null>(null);
-  const [renaming, setRenaming] = useState(false);
   const expandTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isDropTarget = dnd.dropTargetDir === node.path;
   const isDragging = dnd.draggingPaths.includes(node.path);
   const isSelected = dnd.selectedPaths.has(node.path);
   const validDrop = dnd.isValidDrop(node.path);
+  const isRenaming = dnd.renamingPath === node.path;
+  const pendingCreate = dnd.creatingAt?.parentDir === node.path ? dnd.creatingAt.type : null;
 
-  // Auto-expand collapsed dir on sustained hover during drag
+  // Auto-expand when a create is pending inside this dir
+  useEffect(() => {
+    if (pendingCreate) setExpanded(true);
+  }, [pendingCreate]);
+
   const onDragEnter = () => {
     if (!expanded && dnd.draggingPaths.length > 0) {
       expandTimer.current = setTimeout(() => setExpanded(true), 600);
@@ -155,24 +360,23 @@ function DirNode({
 
   const rowStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", paddingRight: 4,
-    background: isDropTarget ? "#eff6ff" : isSelected ? "#f0f7ff" : "none",
-    outline: isDropTarget ? "1px solid #93c5fd" : "none",
+    background: isDropTarget ? "var(--accent-bg)" : isSelected ? "var(--active-row-bg)" : "none",
+    outline: isDropTarget ? "1px solid var(--accent-border)" : "none",
     opacity: isDragging ? 0.4 : 1,
   };
 
-  if (renaming) {
+  if (isRenaming) {
     return (
       <div>
         <InlineInput defaultValue={node.name} depth={depth}
-          onConfirm={(n) => { onRename?.(node.path, n); setRenaming(false); }}
-          onCancel={() => setRenaming(false)} />
+          onConfirm={(n) => { onRename?.(node.path, n); dnd.clearRenaming(); }}
+          onCancel={dnd.clearRenaming} />
       </div>
     );
   }
 
   return (
     <div>
-      {/* Dir header row — drop target + draggable */}
       <div
         draggable
         onDragStart={(e) => dnd.startDrag(e, node.path)}
@@ -184,6 +388,7 @@ function DirNode({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={(e) => { if (e.ctrlKey || e.metaKey) { e.stopPropagation(); dnd.toggleSelect(node.path, true); } }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); dnd.openCtxMenu(e, node.path, "dir"); }}
         style={rowStyle}
       >
         <button
@@ -192,11 +397,14 @@ function DirNode({
             flex: 1, display: "flex", alignItems: "center", gap: 4, textAlign: "left",
             padding: `4px 0 4px ${8 + depth * 12}px`,
             background: "none", border: "none", cursor: "pointer",
-            fontSize: 12, fontWeight: 600, color: "#555", minWidth: 0,
+            fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-2)", minWidth: 0,
           }}
         >
           <span style={{ fontSize: 10, flexShrink: 0 }}>{expanded ? "▾" : "▸"}</span>
-          <span style={{ fontSize: 13, flexShrink: 0 }}>📁</span>
+          {expanded
+            ? <FolderOpen size={14} weight="fill" style={{ flexShrink: 0, color: "var(--text-3)" }} />
+            : <Folder size={14} weight="fill" style={{ flexShrink: 0, color: "var(--text-3)" }} />
+          }
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {node.name}
           </span>
@@ -204,15 +412,14 @@ function DirNode({
         </button>
         {hovered && dnd.draggingPaths.length === 0 && (
           <span style={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-            {onNewFile && <IconBtn title="New file" onClick={(e) => { e.stopPropagation(); setCreating("file"); setExpanded(true); }}>+📄</IconBtn>}
-            {onNewDir && <IconBtn title="New folder" onClick={(e) => { e.stopPropagation(); setCreating("dir"); setExpanded(true); }}>+📁</IconBtn>}
-            {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); setRenaming(true); }}>✏️</IconBtn>}
-            {onDelete && <IconBtn title="Delete folder" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete folder "${node.name}" and all its contents?`)) onDelete(node.path); }}>🗑️</IconBtn>}
+            {onNewFile && <IconBtn title="New file" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "md"); setExpanded(true); }}><FilePlus size={13} /></IconBtn>}
+            {onNewDir && <IconBtn title="New folder" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "dir"); setExpanded(true); }}><FolderPlus size={13} /></IconBtn>}
+            {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
+            {onDelete && <IconBtn title="Delete folder" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete folder "${node.name}" and all its contents?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
           </span>
         )}
       </div>
 
-      {/* Children — also a drop target for this dir (catches events from files inside) */}
       {expanded && (
         <div
           onDragOver={(e) => { e.stopPropagation(); if (validDrop) dnd.dirDragOver(e, node.path); else e.preventDefault(); }}
@@ -228,16 +435,27 @@ function DirNode({
                 selectedFile={selectedFile} onSelect={onSelect} onRename={onRename} onDelete={onDelete} />
             )
           )}
-          {creating && (
-            <InlineInput depth={depth + 1}
-              placeholder={creating === "file" ? "filename.md" : "folder-name"}
+          {pendingCreate && (
+            <InlineInput
+              defaultValue="untitled"
+              depth={depth + 1}
+              placeholder={
+                pendingCreate === "dir" ? "folder-name"
+                : pendingCreate === "excalidraw" ? "untitled.excalidraw"
+                : "untitled.md"
+              }
               onConfirm={(raw) => {
-                const name = creating === "file" && !raw.includes(".") ? `${raw}.md` : raw;
-                if (creating === "file") onNewFile?.(node.path, name);
-                else onNewDir?.(node.path, name);
-                setCreating(null);
+                if (pendingCreate === "dir") {
+                  dnd.onNewDir?.(node.path, raw);
+                } else {
+                  const ext = pendingCreate === "excalidraw" ? ".excalidraw" : ".md";
+                  const name = raw.includes(".") ? raw : raw + ext;
+                  dnd.onNewFile?.(node.path, name);
+                }
+                dnd.clearCreatingAt();
               }}
-              onCancel={() => setCreating(null)} />
+              onCancel={dnd.clearCreatingAt}
+            />
           )}
         </div>
       )}
@@ -245,7 +463,7 @@ function DirNode({
   );
 }
 
-// ── File node ─────────────────────────────────────────────────────────────────
+// ── File node ──────────────────────────────────────────────────────────────────
 
 function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
   node: FileNode; depth: number; selectedFile: string | null;
@@ -255,22 +473,22 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
 }) {
   const dnd = useDnD();
   const [hovered, setHovered] = useState(false);
-  const [renaming, setRenaming] = useState(false);
 
   const isSelected = dnd.selectedPaths.has(node.path);
   const isActive = selectedFile === node.path;
   const isDragging = dnd.draggingPaths.includes(node.path);
+  const isRenaming = dnd.renamingPath === node.path;
 
-  if (renaming) {
+  if (isRenaming) {
     const origExt = node.name.includes(".") ? "." + node.name.split(".").pop() : ".md";
     return (
       <InlineInput defaultValue={node.name} depth={depth}
         onConfirm={(n) => {
           const name = n.includes(".") ? n : n + origExt;
           onRename?.(node.path, name);
-          setRenaming(false);
+          dnd.clearRenaming();
         }}
-        onCancel={() => setRenaming(false)} />
+        onCancel={dnd.clearRenaming} />
     );
   }
 
@@ -281,6 +499,7 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       onDragEnd={dnd.endDrag}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); dnd.openCtxMenu(e, node.path, "file"); }}
       onClick={(e) => {
         if (e.ctrlKey || e.metaKey) {
           dnd.toggleSelect(node.path, true);
@@ -291,8 +510,8 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       }}
       style={{
         display: "flex", alignItems: "center",
-        background: isActive ? "#e8f0fe" : isSelected ? "#eff6ff" : hovered ? "#f3f4f6" : "none",
-        borderLeft: isActive ? "2px solid #2563eb" : isSelected ? "2px solid #93c5fd" : "2px solid transparent",
+        background: isActive ? "var(--active-row-bg)" : isSelected ? "var(--accent-bg)" : hovered ? "var(--hover-bg)" : "none",
+        borderLeft: isActive ? "2px solid var(--accent)" : isSelected ? "2px solid var(--accent-border)" : "2px solid transparent",
         paddingRight: 4, cursor: "grab",
         opacity: isDragging ? 0.4 : 1,
         userSelect: "none",
@@ -301,11 +520,12 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       <span style={{
         flex: 1, display: "flex", alignItems: "center", gap: 6, minWidth: 0,
         padding: `4px 4px 4px ${8 + depth * 12}px`,
-        fontSize: 12, color: isActive ? "#1d4ed8" : "#374151",
+        fontSize: "var(--text-sm)", color: isActive ? "var(--accent)" : "var(--text-2)",
       }}>
-        <span style={{ fontSize: 12, flexShrink: 0 }}>
-          {node.name.endsWith(".excalidraw") ? "🎨" : "📄"}
-        </span>
+        {node.name.endsWith(".excalidraw")
+          ? <PenNib size={13} style={{ flexShrink: 0 }} />
+          : <FileText size={13} style={{ flexShrink: 0 }} />
+        }
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {node.name.replace(/\.(md|excalidraw)$/, "")}
         </span>
@@ -314,24 +534,27 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       </span>
       {hovered && dnd.draggingPaths.length === 0 && (
         <span style={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-          {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); setRenaming(true); }}>✏️</IconBtn>}
-          {onDelete && <IconBtn title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${node.name}"?`)) onDelete(node.path); }}>🗑️</IconBtn>}
+          {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
+          {onDelete && <IconBtn title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${node.name}"?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
         </span>
       )}
     </div>
   );
 }
 
-// ── FileTree root ─────────────────────────────────────────────────────────────
+// ── FileTree root ──────────────────────────────────────────────────────────────
 
 export function FileTree({
   tree, selectedFile, onSelect,
   onNewFile, onNewDir, onRename, onDelete, onMove,
+  onCopy, onDuplicate,
 }: FileTreeProps) {
   const [selectedPaths, setSelectedPaths] = useState(new Set<string>());
   const [draggingPaths, setDraggingPaths] = useState<string[]>([]);
   const [dropTargetDir, setDropTargetDir] = useState<string | null | undefined>(undefined);
-  const [creatingAtRoot, setCreatingAtRoot] = useState<"file" | "dir" | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
+  const [creatingAt, setCreatingAt] = useState<{ parentDir: string | null; type: CreatingType } | null>(null);
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const lastDropDir = useRef<string | null | undefined>(undefined);
 
   const toggleSelect = useCallback((path: string, multi: boolean) => {
@@ -400,26 +623,45 @@ export function FileTree({
     lastDropDir.current = undefined;
   }, [isValidDrop, draggingPaths, onMove]);
 
+  const openCtxMenu = useCallback((e: React.MouseEvent, nodePath: string | null, nodeType: "file" | "dir" | null) => {
+    e.preventDefault();
+    setCtxMenu({ x: e.clientX, y: e.clientY, nodePath, nodeType });
+  }, []);
+
+  const closeCtxMenu = useCallback(() => setCtxMenu(null), []);
+  const startCreatingAt = useCallback((parentDir: string | null, type: CreatingType) => setCreatingAt({ parentDir, type }), []);
+  const clearCreatingAt = useCallback(() => setCreatingAt(null), []);
+  const startRenaming = useCallback((path: string) => setRenamingPath(path), []);
+  const clearRenaming = useCallback(() => setRenamingPath(null), []);
+
   const ctx: DnDCtxValue = {
     selectedPaths, toggleSelect,
     draggingPaths, dropTargetDir,
     startDrag, endDrag, dirDragOver, dirDrop, isValidDrop,
     onMove,
+    ctxMenu, openCtxMenu, closeCtxMenu,
+    creatingAt, startCreatingAt, clearCreatingAt,
+    renamingPath, startRenaming, clearRenaming,
+    onNewFile, onNewDir, onRename, onDelete, onCopy, onDuplicate,
   };
 
   const rootIsDropTarget = dropTargetDir === null && draggingPaths.length > 0;
+  const rootPendingCreate = creatingAt?.parentDir === null ? creatingAt.type : null;
 
-  if (!tree.length && !creatingAtRoot) {
+  if (!tree.length && !rootPendingCreate) {
     return (
-      <div style={{ padding: "12px 16px", color: "#9ca3af", fontSize: 12 }}>
-        <div>No files found.</div>
-        {onNewFile && (
-          <button onClick={() => setCreatingAtRoot("file")}
-            style={{ marginTop: 8, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-            + New file
-          </button>
-        )}
-      </div>
+      <DnDCtx.Provider value={ctx}>
+        <div style={{ padding: "12px 16px", color: "#9ca3af", fontSize: 12 }}>
+          <div>No files found.</div>
+          {onNewFile && (
+            <button onClick={() => startCreatingAt(null, "md")}
+              style={{ marginTop: 8, fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+              + New file
+            </button>
+          )}
+        </div>
+        {ctxMenu && <ContextMenu state={ctxMenu} onClose={closeCtxMenu} />}
+      </DnDCtx.Provider>
     );
   }
 
@@ -430,9 +672,10 @@ export function FileTree({
         onDragOver={(e) => { e.preventDefault(); dirDragOver(e, null); }}
         onDrop={(e) => dirDrop(e, null)}
         onDragLeave={(e) => {
-          const tree = e.currentTarget as Element;
-          if (!tree.contains(e.relatedTarget as Node)) endDrag();
+          const el = e.currentTarget as Element;
+          if (!el.contains(e.relatedTarget as Node)) endDrag();
         }}
+        onContextMenu={(e) => { e.preventDefault(); openCtxMenu(e, null, null); }}
       >
         {tree.map((node) =>
           node.type === "dir" ? (
@@ -444,17 +687,29 @@ export function FileTree({
           )
         )}
 
-        {creatingAtRoot && (
-          <InlineInput depth={0} placeholder={creatingAtRoot === "file" ? "filename.md" : "folder-name"}
+        {rootPendingCreate && (
+          <InlineInput
+            defaultValue="untitled"
+            depth={0}
+            placeholder={
+              rootPendingCreate === "dir" ? "folder-name"
+              : rootPendingCreate === "excalidraw" ? "untitled.excalidraw"
+              : "untitled.md"
+            }
             onConfirm={(raw) => {
-              const name = creatingAtRoot === "file" && !raw.endsWith(".md") ? `${raw}.md` : raw;
-              if (creatingAtRoot === "file") onNewFile?.(null, name); else onNewDir?.(null, name);
-              setCreatingAtRoot(null);
+              if (rootPendingCreate === "dir") {
+                onNewDir?.(null, raw);
+              } else {
+                const ext = rootPendingCreate === "excalidraw" ? ".excalidraw" : ".md";
+                const name = raw.includes(".") ? raw : raw + ext;
+                onNewFile?.(null, name);
+              }
+              clearCreatingAt();
             }}
-            onCancel={() => setCreatingAtRoot(null)} />
+            onCancel={clearCreatingAt}
+          />
         )}
 
-        {/* Root drop zone — shown only during a drag */}
         {draggingPaths.length > 0 && (
           <div style={{
             margin: "6px 8px 2px",
@@ -471,6 +726,8 @@ export function FileTree({
           </div>
         )}
       </div>
+
+      {ctxMenu && <ContextMenu state={ctxMenu} onClose={closeCtxMenu} />}
     </DnDCtx.Provider>
   );
 }

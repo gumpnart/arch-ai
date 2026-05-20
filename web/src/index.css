@@ -1,6 +1,86 @@
 @import "tailwindcss";
 @source "../node_modules/@blocknote/shadcn";
 
+/* ── Alt D — Icon Rail design system tokens ──────────────────────────────── */
+:root {
+  /* Rail */
+  --rail-bg: #18181b;
+  --rail-border: #27272a;
+  --rail-icon: #52525b;
+  --rail-icon-hover: #d4d4d8;
+  --rail-active-bg: #1d3a7a;
+  --rail-active-color: #93c5fd;
+  --rail-width: 52px;
+
+  /* File panel */
+  --panel-bg: #fafafa;
+  --panel-border: #f0f0f0;
+  --panel-width: 220px;
+
+  /* Editor */
+  --editor-bg: #ffffff;
+  --editor-max-width: 100%;
+  --editor-topbar-h: 48px;
+
+  /* Color palette */
+  --accent: #2563eb;
+  --accent-bg: #eff6ff;
+  --accent-border: #bfdbfe;
+  --text-1: #09090b;
+  --text-2: #52525b;
+  --text-3: #a1a1aa;
+  --border: #f0f0f0;
+  --border-mid: #e4e4e7;
+  --hover-bg: #f4f4f5;
+  --active-row-bg: #eff6ff;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 15px;
+
+  /* Spacing (4px grid) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+
+  /* Radius */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 10px;
+  --r-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.12);
+  --shadow-accent: 0 1px 3px rgba(37,99,235,.3);
+
+  /* Status semantic colors */
+  --status-draft-bg: #fef3c7;
+  --status-draft-text: #92400e;
+  --status-review-bg: #dbeafe;
+  --status-review-text: #1e40af;
+  --status-stable-bg: #d1fae5;
+  --status-stable-text: #065f46;
+  --status-deprecated-bg: #f3f4f6;
+  --status-deprecated-text: #6b7280;
+  --status-example-bg: #ede9fe;
+  --status-example-text: #4c1d95;
+  --status-unknown-bg: #f3f4f6;
+  --status-unknown-text: #9ca3af;
+}
+
 /* Tailwind v4 theme tokens — generates bg-popover, text-popover-foreground, etc. */
 @theme {
   --color-background: hsl(0 0% 100%);
