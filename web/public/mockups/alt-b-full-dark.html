@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><title>Alt B — Full Dark (Cursor-style)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; background: #0d0d0d; color: #e4e4e7; -webkit-font-smoothing: antialiased; }
+
+    :root {
+      --bg-app: #0d0d0d;
+      --bg-sidebar: #111113;
+      --bg-hover: #1a1a1d;
+      --bg-active: #1e1e22;
+      --bg-editor: #141416;
+      --bg-panel: #111113;
+      --border: #222226;
+      --accent: #7c5cfc;
+      --accent-bg: #1c1629;
+      --accent-text: #a78bfa;
+      --text-1: #e4e4e7;
+      --text-2: #a1a1aa;
+      --text-3: #52525b;
+      --green: #22c55e;
+      --green-bg: #0f2318;
+    }
+
+    .label-tag { position:absolute; top:8px; right:8px; z-index:10; background:var(--accent); color:#fff; font-size:10px; font-weight:700; padding:2px 10px; border-radius:999px; letter-spacing:.04em; }
+
+    .navbar { height:40px; background:var(--bg-app); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 8px; flex-shrink:0; }
+    .nav-btn { width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:5px; color:var(--text-3); transition:.1s; }
+    .nav-btn:hover { background:var(--bg-hover); color:var(--text-2); }
+    .nav-btn.disabled { color:#2a2a2e; pointer-events:none; }
+    .nav-breadcrumb { flex:1; padding:0 10px; display:flex; align-items:center; gap:4px; font-size:12px; color:var(--text-3); cursor:pointer; height:100%; border-radius:4px; }
+    .nav-breadcrumb:hover { background:var(--bg-hover); }
+    .nav-breadcrumb .sep { color:#2a2a2e; }
+    .nav-breadcrumb .cur { color:var(--text-2); font-weight:500; }
+
+    .layout { display:flex; flex:1; overflow:hidden; }
+
+    .sidebar { width:250px; background:var(--bg-sidebar); border-right:1px solid var(--border); display:flex; flex-direction:column; flex-shrink:0; }
+    .sidebar-top { padding:10px 8px 8px; border-bottom:1px solid var(--border); }
+    .folder-row { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:5px; font-size:12px; font-weight:500; color:var(--text-2); cursor:pointer; }
+    .folder-row:hover { background:var(--bg-hover); }
+    .action-row { display:flex; gap:2px; margin-top:6px; }
+    .act-btn { flex:1; padding:4px; border-radius:4px; display:flex; align-items:center; justify-content:center; color:var(--text-3); transition:.1s; }
+    .act-btn:hover { background:var(--bg-hover); color:var(--text-2); }
+
+    .section-hdr { font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--text-3); padding:10px 12px 4px; text-transform:uppercase; }
+    .tree-row { display:flex; align-items:center; gap:5px; padding:3px 10px; font-size:12px; color:var(--text-2); cursor:pointer; border-left:2px solid transparent; transition:.1s; }
+    .tree-row:hover { background:var(--bg-hover); color:var(--text-1); }
+    .tree-row.active { background:var(--accent-bg); border-left-color:var(--accent); color:var(--accent-text); }
+    .tree-row.sub { padding-left:22px; }
+    .tree-row.sub2 { padding-left:34px; }
+
+    .main { flex:1; display:flex; flex-direction:column; background:var(--bg-editor); overflow:hidden; }
+
+    .editor-toolbar { height:38px; border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; gap:10px; flex-shrink:0; background:var(--bg-sidebar); }
+    .toolbar-path { flex:1; font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-3); display:flex; align-items:center; gap:6px; }
+    .dirty { color:#f59e0b; font-size:9px; }
+    .badge { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; background:var(--green-bg); color:var(--green); }
+    .save-btn { padding:4px 12px; border-radius:4px; font-size:11px; font-weight:600; background:var(--accent); color:#fff; border:none; font-family:inherit; cursor:pointer; }
+    .save-btn:hover { opacity:.9; }
+
+    .editor-content { flex:1; overflow:auto; padding:36px 64px; }
+    .editor-content h1 { font-size:22px; font-weight:700; color:var(--text-1); margin-bottom:6px; letter-spacing:-.02em; }
+    .doc-meta { font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-3); margin-bottom:24px; display:flex; gap:16px; }
+    .editor-content h2 { font-size:15px; font-weight:600; color:var(--text-1); margin:28px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+    .editor-content p { font-size:13px; color:var(--text-2); line-height:1.75; margin-bottom:14px; }
+    .callout { background:#1a1a1d; border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:0 6px 6px 0; padding:12px 16px; margin-bottom:18px; }
+    .callout p { color:var(--text-2); margin:0; }
+    .inline-code { background:#1e1e22; color:#f472b6; padding:1px 5px; border-radius:3px; font-family:'JetBrains Mono', monospace; font-size:11px; border:1px solid var(--border); }
+
+    .diagram-card { border:1px solid var(--border); border-radius:6px; overflow:hidden; margin-bottom:18px; }
+    .diagram-header { background:#0d0d0f; border-bottom:1px solid var(--border); padding:6px 12px; display:flex; align-items:center; gap:8px; }
+    .diagram-lang { background:#1c1629; color:var(--accent-text); padding:2px 8px; border-radius:999px; font-size:10px; font-weight:700; font-family:'JetBrains Mono', monospace; }
+    .dh-tabs { display:flex; gap:4px; margin-left:auto; }
+    .dh-tab { padding:2px 8px; border-radius:3px; font-size:10px; color:var(--text-3); border:1px solid var(--border); }
+    .dh-tab.active { background:var(--bg-hover); color:var(--text-2); border-color:#3f3f46; }
+    .diagram-panes { display:grid; grid-template-columns:1fr 1fr; }
+    .diagram-code { background:#0a0a0c; color:#a78bfa; padding:14px; font-family:'JetBrains Mono', monospace; font-size:11px; line-height:1.7; }
+    .diagram-code .kw { color:#7c5cfc; }
+    .diagram-code .id { color:#34d399; }
+    .diagram-code .op { color:#fb7185; }
+    .diagram-preview { background:#111113; display:flex; align-items:center; justify-content:center; padding:16px; border-left:1px solid var(--border); }
+
+    .panel { width:220px; border-left:1px solid var(--border); background:var(--bg-panel); padding:16px 14px; overflow:auto; flex-shrink:0; }
+    .panel-title { font-size:10px; font-weight:700; letter-spacing:.08em; color:var(--text-3); text-transform:uppercase; margin-bottom:14px; }
+    .field { margin-bottom:12px; }
+    .field label { display:block; font-size:10px; font-weight:600; color:var(--text-3); margin-bottom:3px; text-transform:uppercase; letter-spacing:.04em; font-family:'JetBrains Mono', monospace; }
+    .field input, .field select { width:100%; font-size:11px; padding:5px 7px; border:1px solid var(--border); border-radius:4px; background:#1a1a1d; color:var(--text-2); font-family:'JetBrains Mono', monospace; outline:none; }
+    .field input:focus, .field select:focus { border-color:var(--accent); }
+    .tags { display:flex; flex-wrap:wrap; gap:3px; }
+    .tag { padding:1px 7px; background:var(--accent-bg); color:var(--accent-text); border:1px solid #2d1f5e; border-radius:999px; font-size:10px; font-family:'JetBrains Mono', monospace; }
+    .panel-footer { margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-size:10px; color:var(--text-3); line-height:2; font-family:'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body style="position:relative">
+<div class="label-tag">Alt B — Full Dark</div>
+
+<nav class="navbar">
+  <button class="nav-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <button class="nav-btn disabled"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+  <div class="nav-breadcrumb">
+    <span>my-vault</span><span class="sep">›</span>
+    <span>Architecture</span><span class="sep">›</span>
+    <span class="cur">system-overview</span>
+  </div>
+  <button class="nav-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+</nav>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="folder-row">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        my-vault
+        <svg style="margin-left:auto" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+      <div class="action-row">
+        <button class="act-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="act-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg></button>
+        <button class="act-btn"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg></button>
+        <button class="act-btn" style="font-size:10px;color:#52525b;font-family:'JetBrains Mono',monospace">⌘P</button>
+      </div>
+    </div>
+    <div class="section-hdr">Open</div>
+    <div class="tree-row active sub"><svg width="11" height="11" fill="none" stroke="#a78bfa" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>system-overview.md</div>
+    <div class="tree-row sub"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>auth-flow.md</div>
+    <div class="section-hdr">Explorer</div>
+    <div class="tree-row"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><svg width="11" height="11" fill="#f59e0b" stroke="#d97706" stroke-width="1" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Architecture</div>
+    <div class="tree-row active sub2"><svg width="11" height="11" fill="none" stroke="#a78bfa" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>system-overview.md</div>
+    <div class="tree-row sub2"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>sad-template.md</div>
+    <div class="tree-row"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><svg width="11" height="11" fill="#f59e0b" stroke="#d97706" stroke-width="1" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Flows</div>
+    <div class="tree-row"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg><svg width="11" height="11" fill="#f59e0b" stroke="#d97706" stroke-width="1" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>ADR</div>
+  </aside>
+
+  <main class="main">
+    <div class="editor-toolbar">
+      <div class="toolbar-path">Architecture<span style="color:#2a2a2e">/</span>system-overview.md <span class="dirty">●</span></div>
+      <span class="badge">● stable</span>
+      <button class="save-btn">Save</button>
+    </div>
+    <div class="editor-content">
+      <h1>System Overview</h1>
+      <div class="doc-meta"><span>updated: 2026-05-20</span><span>owner: team-platform</span><span>type: sad</span></div>
+      <div class="callout"><p>High-level architecture of the platform — components, data flows, and integration points.</p></div>
+      <h2>Architecture</h2>
+      <p>The platform is composed of three primary layers: the <span class="inline-code">API Gateway</span>, the <span class="inline-code">Service Mesh</span>, and the <span class="inline-code">Data Layer</span>.</p>
+      <div class="diagram-card">
+        <div class="diagram-header">
+          <span class="diagram-lang">mermaid</span>
+          <span style="font-size:10px;color:#52525b;margin-left:4px">graph LR</span>
+          <div class="dh-tabs"><span class="dh-tab active">Split</span><span class="dh-tab">Code</span><span class="dh-tab">Preview</span></div>
+        </div>
+        <div class="diagram-panes">
+          <div class="diagram-code"><span class="kw">graph</span> LR<br>&nbsp;&nbsp;<span class="id">Browser</span> <span class="op">--&gt;</span> Gateway<br>&nbsp;&nbsp;<span class="id">Gateway</span> <span class="op">--&gt;</span> Auth<br>&nbsp;&nbsp;<span class="id">Gateway</span> <span class="op">--&gt;</span> API<br>&nbsp;&nbsp;<span class="id">API</span> <span class="op">--&gt;</span> Postgres<br>&nbsp;&nbsp;<span class="id">API</span> <span class="op">--&gt;</span> Redis</div>
+          <div class="diagram-preview">
+            <svg viewBox="0 0 260 140" width="240" fill="none">
+              <rect x="2" y="54" width="52" height="24" rx="4" fill="#1c1629" stroke="#7c5cfc" stroke-width="1"/><text x="28" y="69" text-anchor="middle" font-size="9" fill="#a78bfa" font-family="JetBrains Mono">Browser</text>
+              <path d="M54 66 L72 66" stroke="#444" stroke-width="1" marker-end="url(#dm)"/>
+              <rect x="72" y="42" width="62" height="44" rx="4" fill="#0f2318" stroke="#22c55e" stroke-width="1"/><text x="103" y="62" text-anchor="middle" font-size="9" fill="#22c55e" font-family="JetBrains Mono">Gateway</text><text x="103" y="75" text-anchor="middle" font-size="8" fill="#166534" font-family="JetBrains Mono">rate·auth</text>
+              <path d="M134 56 L152 36" stroke="#444" stroke-width="1" marker-end="url(#dm)"/>
+              <path d="M134 76 L152 96" stroke="#444" stroke-width="1" marker-end="url(#dm)"/>
+              <rect x="152" y="22" width="46" height="24" rx="4" fill="#1c1629" stroke="#a78bfa" stroke-width="1"/><text x="175" y="37" text-anchor="middle" font-size="9" fill="#a78bfa" font-family="JetBrains Mono">Auth</text>
+              <rect x="152" y="82" width="46" height="24" rx="4" fill="#1c1a10" stroke="#f59e0b" stroke-width="1"/><text x="175" y="97" text-anchor="middle" font-size="9" fill="#f59e0b" font-family="JetBrains Mono">API</text>
+              <path d="M198 92 L210 80" stroke="#444" stroke-width="1" marker-end="url(#dm)"/>
+              <path d="M198 102 L210 112" stroke="#444" stroke-width="1" marker-end="url(#dm)"/>
+              <rect x="210" y="68" width="44" height="22" rx="4" fill="#0c1f33" stroke="#38bdf8" stroke-width="1"/><text x="232" y="82" text-anchor="middle" font-size="8" fill="#38bdf8" font-family="JetBrains Mono">Postgres</text>
+              <rect x="210" y="100" width="44" height="22" rx="4" fill="#1f0c0c" stroke="#f87171" stroke-width="1"/><text x="232" y="114" text-anchor="middle" font-size="8" fill="#f87171" font-family="JetBrains Mono">Redis</text>
+              <defs><marker id="dm" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0 0 L5 2.5 L0 5z" fill="#444"/></marker></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <h2>Data Flow</h2>
+      <p>All client requests enter through the API Gateway, which handles rate limiting and auth delegation, then routes to downstream microservices. PostgreSQL for persistence; Redis for caching and queues.</p>
+    </div>
+  </main>
+
+  <aside class="panel">
+    <div class="panel-title">Frontmatter</div>
+    <div class="field"><label>title</label><input value="System Overview"/></div>
+    <div class="field"><label>status</label><select><option>stable</option><option>draft</option></select></div>
+    <div class="field"><label>owner</label><input value="team-platform"/></div>
+    <div class="field"><label>tags</label><div class="tags"><span class="tag">architecture</span><span class="tag">backend</span></div></div>
+    <div class="field"><label>type</label><input value="sad"/></div>
+    <div class="panel-footer"><div>created: 2026-01-10</div><div>updated: 2026-05-20</div></div>
+  </aside>
+</div>
+</body>
+</html>
