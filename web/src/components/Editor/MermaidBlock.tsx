@@ -181,6 +181,7 @@ export const MermaidBlock = createReactBlockSpec(
       const codePanel = (viewMode === "code" || viewMode === "split") && (
         <textarea
           key="code"
+          data-testid="mermaid-code-textarea"
           value={dsl}
           onChange={(e) => update("dsl", e.target.value)}
           placeholder="Enter diagram DSL here..."
@@ -276,7 +277,7 @@ export const MermaidBlock = createReactBlockSpec(
       // ── Render ────────────────────────────────────────────────────────────────
 
       return (
-        <div style={{ border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", margin: "8px 0", width: "100%" }}>
+        <div data-testid="mermaid-block" style={{ border: "1px solid #e0e0e0", borderRadius: 8, overflow: "hidden", margin: "8px 0", width: "100%" }}>
           {/* Toolbar */}
           <div
             style={{
@@ -290,6 +291,7 @@ export const MermaidBlock = createReactBlockSpec(
           >
             <span style={{ fontSize: 11, fontWeight: 700, color: "#555" }}>Diagram</span>
             <select
+              data-testid="mermaid-type-select"
               value={diagramType}
               onChange={(e) => update("diagramType", e.target.value)}
               style={{ fontSize: 10, border: "1px solid #ddd", borderRadius: 3, padding: "1px 4px" }}
@@ -305,6 +307,7 @@ export const MermaidBlock = createReactBlockSpec(
                   {(["left", "right", "top", "bottom"] as Layout[]).map((l) => (
                     <button
                       key={l}
+                      data-testid={`mermaid-layout-${l}-btn`}
                       title={`Code ${l}`}
                       onClick={() => update("layout", l)}
                       style={{
@@ -333,6 +336,7 @@ export const MermaidBlock = createReactBlockSpec(
               {(["code", "split", "preview"] as const).map((m) => (
                 <button
                   key={m}
+                  data-testid={`mermaid-view-${m}-btn`}
                   onClick={() => update("viewMode", m)}
                   style={{
                     fontSize: 10,
@@ -367,6 +371,7 @@ export const MermaidBlock = createReactBlockSpec(
 
           {/* Block resize handle */}
           <div
+            data-testid="mermaid-resize-handle"
             onMouseDown={handleBlockResizeMouseDown}
             style={{
               height: 6,

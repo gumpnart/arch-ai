@@ -12,7 +12,9 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
     onChange({ ...frontmatter, [key]: value });
 
   return (
-    <aside style={{
+    <aside
+      data-testid="frontmatter-panel"
+      style={{
       width: 224,
       borderLeft: "1px solid var(--border)",
       background: "var(--panel-bg)",
@@ -33,6 +35,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Title">
         <Input
+          data-testid="frontmatter-title-input"
           value={(frontmatter.title as string) ?? ""}
           onChange={(e) => update("title", e.target.value)}
         />
@@ -40,6 +43,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Status">
         <select
+          data-testid="frontmatter-status-select"
           value={(frontmatter.status as string) ?? "draft"}
           onChange={(e) => update("status", e.target.value)}
           style={selectStyle}
@@ -52,6 +56,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Owner">
         <Input
+          data-testid="frontmatter-owner-input"
           value={(frontmatter.owner as string) ?? ""}
           onChange={(e) => update("owner", e.target.value)}
         />
@@ -59,6 +64,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Tags">
         <Input
+          data-testid="frontmatter-tags-input"
           placeholder="comma-separated"
           value={Array.isArray(frontmatter.tags) ? frontmatter.tags.join(", ") : ""}
           onChange={(e) =>
@@ -76,6 +82,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Relates to">
         <Input
+          data-testid="frontmatter-relates-to-input"
           placeholder="comma-separated"
           value={Array.isArray(frontmatter.relates_to) ? frontmatter.relates_to.join(", ") : ""}
           onChange={(e) =>
@@ -86,6 +93,7 @@ export function FrontmatterPanel({ frontmatter, onChange }: FrontmatterPanelProp
 
       <Field label="Type">
         <Input
+          data-testid="frontmatter-type-input"
           value={(frontmatter.type as string) ?? ""}
           onChange={(e) => update("type", e.target.value)}
         />

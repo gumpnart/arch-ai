@@ -298,7 +298,9 @@ export default function App() {
     }}>
 
       {/* ── Icon Rail ──────────────────────────────────────────────────────── */}
-      <nav style={{
+      <nav
+        data-testid="app-rail"
+        style={{
         width: "var(--rail-width)",
         background: "var(--rail-bg)",
         borderRight: `1px solid var(--rail-border)`,
@@ -311,6 +313,7 @@ export default function App() {
         userSelect: "none",
       }}>
         <RailIcon
+          data-testid="rail-explorer-btn"
           active={railView === "explorer"}
           title="Explorer"
           onClick={() => setRailView("explorer")}
@@ -319,6 +322,7 @@ export default function App() {
         </RailIcon>
 
         <RailIcon
+          data-testid="rail-search-btn"
           active={railView === "search"}
           title="Search (Ctrl+Shift+F)"
           onClick={() => { if (folderOpen) setRailView("search"); }}
@@ -328,6 +332,7 @@ export default function App() {
         </RailIcon>
 
         <RailIcon
+          data-testid="rail-templates-btn"
           title="Templates"
           onClick={() => { if (folderOpen) setTemplateModalOpen(true); }}
           muted={!folderOpen}
@@ -338,6 +343,7 @@ export default function App() {
         <div style={{ width: 24, height: 1, background: "var(--rail-border)", margin: "4px 0" }} />
 
         <RailIcon
+          data-testid="rail-quick-open-btn"
           title="Quick open (Ctrl+P)"
           onClick={() => { if (folderOpen) setPaletteOpen(true); }}
           muted={!folderOpen}
@@ -348,24 +354,10 @@ export default function App() {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* New file / folder actions */}
-        {folderOpen && (
-          <>
-            <RailIcon title="New markdown file" onClick={() => handleNewFile(null, "untitled.md")}>
-              <FilePlus size={16} />
-            </RailIcon>
-            <RailIcon title="New drawing" onClick={() => handleNewExcalidraw(null)}>
-              <PenNib size={16} />
-            </RailIcon>
-          </>
-        )}
-
-        <RailIcon title="Open folder" onClick={handleOpenFolder}>
-          <FolderOpen size={17} />
-        </RailIcon>
-
         {/* Avatar */}
-        <div style={{
+        <div
+          data-testid="workspace-avatar"
+          style={{
           width: 28,
           height: 28,
           background: "var(--accent)",
@@ -385,7 +377,9 @@ export default function App() {
       </nav>
 
       {/* ── File Panel ─────────────────────────────────────────────────────── */}
-      <div style={{
+      <div
+        data-testid="file-panel"
+        style={{
         width: "var(--panel-width)",
         background: "var(--panel-bg)",
         borderRight: "1px solid var(--panel-border)",
@@ -437,25 +431,7 @@ export default function App() {
           ) : (
             <div style={{ marginBottom: 10, height: 20 }} />
           )}
-
-          {/* Search input */}
-          <input
-            placeholder="Search files…"
-            onFocus={() => { if (folderOpen) setRailView("search"); }}
-            readOnly={!folderOpen}
-            style={{
-              width: "100%",
-              background: "#f4f4f5",
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 10px",
-              fontSize: 12,
-              color: "var(--text-2)",
-              fontFamily: "var(--font-sans)",
-              outline: "none",
-              cursor: folderOpen ? "text" : "not-allowed",
-            }}
-          />
+          
         </div>
 
         {/* Explorer view */}
@@ -508,7 +484,7 @@ export default function App() {
       </div>
 
       {/* ── Editor Area ────────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <main data-testid="editor-area" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         {selectedFile ? (
           selectedFile.endsWith(".excalidraw") ? (
             <ExcalidrawEditor
@@ -569,16 +545,19 @@ function RailIcon({
   muted,
   title,
   onClick,
+  "data-testid": dataTestId,
 }: {
   children: React.ReactNode;
   active?: boolean;
   muted?: boolean;
   title?: string;
   onClick?: () => void;
+  "data-testid"?: string;
 }) {
   return (
     <button
       title={title}
+      data-testid={dataTestId}
       onClick={onClick}
       style={{
         width: 36,
@@ -637,6 +616,7 @@ function PanelEmptyState({ onOpenFolder }: { onOpenFolder: () => void }) {
         No folder open
       </p>
       <button
+        data-testid="panel-empty-open-folder-btn"
         onClick={onOpenFolder}
         style={{
           fontSize: 12,
@@ -685,6 +665,7 @@ function EditorEmptyState({
       </p>
       {!folderOpen && (
         <button
+          data-testid="editor-empty-open-folder-btn"
           onClick={onOpenFolder}
           style={{
             fontSize: 13,

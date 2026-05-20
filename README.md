@@ -22,7 +22,7 @@ GitHub Actions      CI/CD — build + deploy to GitHub Pages
   ↓
 VitePress Site       Static site — published docs
 
-Browser → web/      React + BlockNote editor (port 3000) — Icon Rail UI (Linear-style), Phosphor Icons, local folder via File System Access API, full-width diagram blocks, zoom/pan preview, Excalidraw drawing editor for .excalidraw files
+Browser → web/      React + BlockNote editor (port 3000) — Icon Rail UI (Linear-style), Phosphor Icons, local folder via File System Access API, full-width diagram blocks, zoom/pan preview, Excalidraw drawing editor for .excalidraw files; all interactive elements have `data-testid` attributes for testing
   ↓ proxy
 Kroki :8000         Diagram preview rendering
 ```
@@ -81,6 +81,26 @@ The web editor supports two modes:
 - **Open Editors panel** — collapsible section at the top of the sidebar listing all files opened in the current session; click ✕ to remove a file from the list
 
 > Drag-and-drop and inline CRUD actions (rename, delete, new file, new folder) also work in **vault mode** via the server API.
+
+### Vercel Deployment
+
+`arch-doc-web` can be deployed to Vercel as a static SPA with Edge Function API routes.
+
+**Project settings:**
+- Root Directory: `web`
+- Build Command: `pnpm run build`
+- Output Directory: `dist/client`
+- Install Command: `pnpm install`
+
+**Environment variables to set in Vercel dashboard:**
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Yes (for AI) | — | Gemini streaming AI assistant |
+| `GEMINI_MODEL` | No | `gemma-4-31b-it` | Model name |
+| `KROKI_URL` | No | `https://kroki.io` | Diagram rendering service |
+
+> Local dev still uses `vite dev` with the Docker Kroki stack on `localhost:8000`. Set `KROKI_URL=http://localhost:8000` in `web/.env.local` to override.
 
 ### MCP Config (Claude Code CLI)
 

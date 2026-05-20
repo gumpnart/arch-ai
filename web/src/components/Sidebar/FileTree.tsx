@@ -108,6 +108,7 @@ function InlineInput({
   return (
     <div style={{ paddingLeft: 8 + depth * 12, paddingRight: 8, paddingTop: 2, paddingBottom: 2 }}>
       <input
+        data-testid="inline-input"
         ref={ref}
         value={value}
         placeholder={placeholder ?? "name.md"}
@@ -126,14 +127,16 @@ function InlineInput({
 
 // ── Small icon button ──────────────────────────────────────────────────────────
 
-function IconBtn({ title, onClick, children }: {
+function IconBtn({ title, onClick, children, "data-testid": dataTestId }: {
   title: string;
   onClick: (e: React.MouseEvent) => void;
   children: React.ReactNode;
+  "data-testid"?: string;
 }) {
   return (
     <button
       title={title}
+      data-testid={dataTestId}
       onClick={onClick}
       style={{ background: "none", border: "none", cursor: "pointer", padding: "1px 3px", borderRadius: "var(--r-sm)", fontSize: "var(--text-xs)", color: "var(--text-3)", lineHeight: 1, flexShrink: 0 }}
       onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "var(--text-1)")}
@@ -267,6 +270,7 @@ function ContextMenu({ state, onClose }: { state: CtxMenuState; onClose: () => v
   return createPortal(
     <div
       ref={menuRef}
+      data-testid="context-menu"
       onContextMenu={(e) => e.preventDefault()}
       style={{
         position: "fixed",
@@ -289,6 +293,7 @@ function ContextMenu({ state, onClose }: { state: CtxMenuState; onClose: () => v
         ) : (
           <button
             key={i}
+            data-testid={`context-menu-${item.label.toLowerCase().replace(/\s+/g, "-")}-btn`}
             onMouseDown={(e) => e.preventDefault()}
             onClick={item.action}
             style={{
@@ -392,6 +397,7 @@ function DirNode({
         style={rowStyle}
       >
         <button
+          data-testid="dir-expand-btn"
           onClick={(e) => { e.stopPropagation(); setExpanded((p) => !p); }}
           style={{
             flex: 1, display: "flex", alignItems: "center", gap: 4, textAlign: "left",
@@ -412,10 +418,10 @@ function DirNode({
         </button>
         {hovered && dnd.draggingPaths.length === 0 && (
           <span style={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-            {onNewFile && <IconBtn title="New file" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "md"); setExpanded(true); }}><FilePlus size={13} /></IconBtn>}
-            {onNewDir && <IconBtn title="New folder" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "dir"); setExpanded(true); }}><FolderPlus size={13} /></IconBtn>}
-            {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
-            {onDelete && <IconBtn title="Delete folder" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete folder "${node.name}" and all its contents?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
+            {onNewFile && <IconBtn data-testid="dir-new-file-btn" title="New file" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "md"); setExpanded(true); }}><FilePlus size={13} /></IconBtn>}
+            {onNewDir && <IconBtn data-testid="dir-new-folder-btn" title="New folder" onClick={(e) => { e.stopPropagation(); dnd.startCreatingAt(node.path, "dir"); setExpanded(true); }}><FolderPlus size={13} /></IconBtn>}
+            {onRename && <IconBtn data-testid="dir-rename-btn" title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
+            {onDelete && <IconBtn data-testid="dir-delete-btn" title="Delete folder" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete folder "${node.name}" and all its contents?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
           </span>
         )}
       </div>
@@ -494,6 +500,7 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
 
   return (
     <div
+      data-testid="file-item"
       draggable
       onDragStart={(e) => dnd.startDrag(e, node.path)}
       onDragEnd={dnd.endDrag}
@@ -534,8 +541,8 @@ function FileItem({ node, depth, selectedFile, onSelect, onRename, onDelete }: {
       </span>
       {hovered && dnd.draggingPaths.length === 0 && (
         <span style={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
-          {onRename && <IconBtn title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
-          {onDelete && <IconBtn title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${node.name}"?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
+          {onRename && <IconBtn data-testid="file-rename-btn" title="Rename" onClick={(e) => { e.stopPropagation(); dnd.startRenaming(node.path); }}><PencilSimple size={13} /></IconBtn>}
+          {onDelete && <IconBtn data-testid="file-delete-btn" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete "${node.name}"?`)) onDelete(node.path); }}><Trash size={13} /></IconBtn>}
         </span>
       )}
     </div>
@@ -668,6 +675,7 @@ export function FileTree({
   return (
     <DnDCtx.Provider value={ctx}>
       <div
+        data-testid="file-tree"
         style={{ padding: "8px 0" }}
         onDragOver={(e) => { e.preventDefault(); dirDragOver(e, null); }}
         onDrop={(e) => dirDrop(e, null)}

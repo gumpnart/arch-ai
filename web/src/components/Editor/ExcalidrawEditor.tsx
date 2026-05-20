@@ -107,9 +107,11 @@ export function ExcalidrawEditor({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div data-testid="excalidraw-editor" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* ── Toolbar ── */}
-      <div style={{
+      <div
+        data-testid="excalidraw-toolbar"
+        style={{
         height: "var(--editor-topbar-h)",
         display: "flex",
         alignItems: "center",
@@ -120,8 +122,8 @@ export function ExcalidrawEditor({
         flexShrink: 0,
       }}>
         {/* Back / Forward */}
-        <ExNavArrow onClick={onGoBack} disabled={!canGoBack} title="Go back (Alt+←)" dir="left" />
-        <ExNavArrow onClick={onGoForward} disabled={!canGoForward} title="Go forward (Alt+→)" dir="right" />
+        <ExNavArrow data-testid="excalidraw-toolbar-back-btn" onClick={onGoBack} disabled={!canGoBack} title="Go back (Alt+←)" dir="left" />
+        <ExNavArrow data-testid="excalidraw-toolbar-forward-btn" onClick={onGoForward} disabled={!canGoForward} title="Go forward (Alt+→)" dir="right" />
 
         {/* Breadcrumb */}
         <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", fontSize: 13 }}>
@@ -145,6 +147,7 @@ export function ExcalidrawEditor({
         )}
 
         <button
+          data-testid="excalidraw-toolbar-save-btn"
           onClick={handleSave}
           disabled={saveStatus === "saving" || (!isDirty && saveStatus !== "error")}
           title="Save (Ctrl+S)"
@@ -167,7 +170,7 @@ export function ExcalidrawEditor({
       </div>
 
       {/* ── Canvas ── */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+      <div data-testid="excalidraw-canvas" style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <Suspense fallback={<CenteredMessage>Loading Excalidraw…</CenteredMessage>}>
           <LazyCanvas
             ref={canvasRef}
@@ -185,16 +188,19 @@ function ExNavArrow({
   disabled,
   title,
   dir,
+  "data-testid": dataTestId,
 }: {
   onClick?: () => void;
   disabled?: boolean;
   title?: string;
   dir: "left" | "right";
+  "data-testid"?: string;
 }) {
   return (
     <button
       onClick={disabled ? undefined : onClick}
       title={title}
+      data-testid={dataTestId}
       style={{
         width: 26,
         height: 26,

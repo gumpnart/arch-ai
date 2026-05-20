@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const KROKI_URL = process.env.KROKI_URL ?? "http://localhost:8000";
+const KROKI_URL = process.env.KROKI_URL ?? "https://kroki.io";
 
 export const Route = createFileRoute("/api/kroki/render")({
   server: {

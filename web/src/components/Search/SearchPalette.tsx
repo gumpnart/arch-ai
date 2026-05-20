@@ -96,6 +96,7 @@ export function SearchPalette({
     <>
       {/* Backdrop */}
       <div
+        data-testid="search-palette-backdrop"
         onClick={onClose}
         style={{
           position: "fixed",
@@ -107,6 +108,7 @@ export function SearchPalette({
 
       {/* Modal */}
       <div
+        data-testid="search-palette"
         style={{
           position: "fixed",
           top: "12%",
@@ -138,6 +140,7 @@ export function SearchPalette({
             🔍
           </span>
           <input
+            data-testid="search-palette-input"
             ref={inputRef}
             value={search.query}
             onChange={(e) => search.setQuery(e.target.value)}
@@ -172,6 +175,7 @@ export function SearchPalette({
 
         {/* Results list */}
         <div
+          data-testid="search-palette-results"
           ref={listRef}
           style={{ maxHeight: 360, overflowY: "auto" }}
         >
@@ -272,6 +276,7 @@ const ResultRow = ({
 
   return (
     <div
+      data-testid="search-palette-result"
       ref={ref}
       onClick={onClick}
       onMouseEnter={onMouseEnter}

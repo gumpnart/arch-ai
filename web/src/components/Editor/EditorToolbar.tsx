@@ -33,7 +33,9 @@ export function EditorToolbar({
   const crumbs = buildBreadcrumb(folderName ?? "", filePath);
 
   return (
-    <div style={{
+    <div
+      data-testid="editor-toolbar"
+      style={{
       height: "var(--editor-topbar-h)",
       display: "flex",
       alignItems: "center",
@@ -45,12 +47,14 @@ export function EditorToolbar({
     }}>
       {/* Back / Forward */}
       <NavArrow
+        data-testid="editor-toolbar-back-btn"
         onClick={onGoBack}
         disabled={!canGoBack}
         title="Go back (Alt+←)"
         dir="left"
       />
       <NavArrow
+        data-testid="editor-toolbar-forward-btn"
         onClick={onGoForward}
         disabled={!canGoForward}
         title="Go forward (Alt+→)"
@@ -58,7 +62,9 @@ export function EditorToolbar({
       />
 
       {/* Breadcrumb */}
-      <div style={{
+      <div
+        data-testid="editor-toolbar-breadcrumb"
+        style={{
         flex: 1,
         display: "flex",
         alignItems: "center",
@@ -104,6 +110,7 @@ export function EditorToolbar({
 
       {/* Status select — compact */}
       <select
+        data-testid="editor-toolbar-status-select"
         value={status ?? "draft"}
         onChange={(e) => onStatusChange(e.target.value as Frontmatter["status"])}
         style={{
@@ -125,6 +132,7 @@ export function EditorToolbar({
 
       {/* Save button */}
       <Button
+        data-testid="editor-toolbar-save-btn"
         variant={isDirty && !isSaving ? "primary" : "secondary"}
         size="sm"
         disabled={isSaving || !isDirty}
@@ -149,16 +157,19 @@ function NavArrow({
   disabled,
   title,
   dir,
+  "data-testid": dataTestId,
 }: {
   onClick?: () => void;
   disabled?: boolean;
   title?: string;
   dir: "left" | "right";
+  "data-testid"?: string;
 }) {
   return (
     <button
       onClick={disabled ? undefined : onClick}
       title={title}
+      data-testid={dataTestId}
       style={{
         width: 26,
         height: 26,

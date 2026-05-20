@@ -15,7 +15,6 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@google/generative-ai": "^0.24.1",
     "@phosphor-icons/react": "^2.1.10",
-    "@rolldown/binding-darwin-arm64": "^1.0.1",
     "@tanstack/react-router": "^1.0.0",
     "@tanstack/react-start": "^1.0.0",
     "gray-matter": "^4.0.3",
@@ -23,6 +22,9 @@
     "minisearch": "^7.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-darwin-arm64": "^1.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

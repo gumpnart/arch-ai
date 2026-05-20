@@ -1,5 +1,81 @@
 # Change Log
 
+## 2026-05-20 — feat: Add data-testid attributes to all meaningful UI elements
+
+### Overview
+
+Added `data-testid` HTML attributes to every meaningful interactive and structural element across the `web/` app following best-practice naming conventions (kebab-case, component-scoped, descriptive).
+
+### Components updated
+
+| File | Testids added |
+|---|---|
+| `web/src/components/ui/Button.tsx` | `data-testid` prop forwarded to `<button>` |
+| `web/src/components/ui/Input.tsx` | `data-testid` prop forwarded to `<input>` |
+| `web/src/App.tsx` | `app-rail`, `rail-*-btn`, `workspace-avatar`, `file-panel`, `editor-area`, `panel-empty-open-folder-btn`, `editor-empty-open-folder-btn` |
+| `web/src/components/Editor/EditorToolbar.tsx` | `editor-toolbar`, `editor-toolbar-back-btn`, `editor-toolbar-forward-btn`, `editor-toolbar-breadcrumb`, `editor-toolbar-status-select`, `editor-toolbar-save-btn` |
+| `web/src/components/Editor/ExcalidrawEditor.tsx` | `excalidraw-editor`, `excalidraw-toolbar`, `excalidraw-toolbar-back-btn`, `excalidraw-toolbar-forward-btn`, `excalidraw-toolbar-save-btn`, `excalidraw-canvas` |
+| `web/src/components/Editor/FrontmatterPanel.tsx` | `frontmatter-panel`, `frontmatter-title-input`, `frontmatter-status-select`, `frontmatter-owner-input`, `frontmatter-tags-input`, `frontmatter-relates-to-input`, `frontmatter-type-input` |
+| `web/src/components/Sidebar/FileTree.tsx` | `file-tree`, `inline-input`, `context-menu`, `context-menu-*-btn`, `dir-expand-btn`, `dir-new-file-btn`, `dir-new-folder-btn`, `dir-rename-btn`, `dir-delete-btn`, `file-item`, `file-rename-btn`, `file-delete-btn` |
+| `web/src/components/Sidebar/OpenEditors.tsx` | `open-editors`, `open-editor-row`, `open-editor-close-btn` |
+| `web/src/components/Search/SearchPalette.tsx` | `search-palette-backdrop`, `search-palette`, `search-palette-input`, `search-palette-results`, `search-palette-result` |
+| `web/src/components/Search/ContentSearchPanel.tsx` | `content-search-panel`, `content-search-input`, `content-search-clear-btn`, `content-search-case-btn`, `content-search-word-btn`, `content-search-regex-btn`, `content-search-results`, `content-search-file-group`, `content-search-match` |
+| `web/src/components/TemplateModal/TemplateModal.tsx` | `template-modal-backdrop`, `template-modal`, `template-modal-close-btn`, `template-card-{id}`, `template-location-subfolder`, `template-location-current`, `template-project-name-input`, `template-cancel-btn`, `template-create-btn` |
+| `web/src/components/Editor/AIAssistantBlock.tsx` | `ai-assistant-block`, `ai-prompt-textarea`, `ai-stable-docs-checkbox`, `ai-accept-btn`, `ai-discard-btn`, `ai-generate-btn` |
+| `web/src/components/Editor/MermaidBlock.tsx` | `mermaid-block`, `mermaid-type-select`, `mermaid-layout-{dir}-btn`, `mermaid-view-{mode}-btn`, `mermaid-code-textarea`, `mermaid-resize-handle` |
+
+### Naming conventions
+
+- All values are kebab-case
+- Buttons end with `-btn`
+- Inputs end with `-input` or `-textarea`
+- Selects end with `-select`
+- Checkboxes end with `-checkbox`
+- Containers use descriptive nouns (no suffix)
+- Dynamic items include the variant/id (e.g. `template-card-microservice-arch`, `mermaid-view-split-btn`)
+
+---
+
+## 2026-05-20 — feat: Prepare arch-doc-web for Vercel deployment
+
+### Overview
+
+Configured `arch-doc-web` (`web/`) for deployment to Vercel as a static SPA with Edge Function API routes.
+
+### Changes
+
+| File | Description |
+|---|---|
+| `web/vercel.json` | Build settings (`dist/client` output), SPA fallback rewrite, COOP/COEP headers |
+| `web/vite.config.ts` | Enabled TanStack Start SPA mode — pre-renders `index.html` shell at build time |
+| `web/api/kroki/render.ts` | Vercel Edge Function: proxies Kroki diagram requests (defaults to `https://kroki.io`) |
+| `web/api/ai/chat.ts` | Vercel Edge Function: Gemini SSE streaming using raw REST API (no SDK dependency) |
+| `web/api/health.ts` | Vercel Edge Function: health check endpoint |
+| `web/.env.example` | Documents required environment variables |
+| `web/.gitignore` | Added `.env.local`, `dist/`, `.vercel/` |
+| `web/package.json` | Moved `@rolldown/binding-darwin-arm64` to `optionalDependencies` (macOS-only) |
+| `web/src/routes/api/kroki/render.ts` | Updated default Kroki URL to `https://kroki.io` (was `localhost:8000`) |
+
+### Deployment
+
+1. **Link project on Vercel** pointing to the `web/` subdirectory (Root Directory: `web`)
+2. **Set environment variables** in Vercel dashboard:
+   - `GEMINI_API_KEY` — required for AI assistant
+   - `GEMINI_MODEL` — optional (default: `gemma-4-31b-it`)
+   - `KROKI_URL` — optional (default: `https://kroki.io`)
+3. **Deploy** — `pnpm build` runs `vite build` which produces `dist/client/` (static) + pre-rendered `index.html`
+
+### Architecture (Vercel)
+
+- Static assets served from `dist/client/` by Vercel CDN
+- `/api/kroki/render` → Edge Function (Kroki proxy)
+- `/api/ai/chat` → Edge Function (Gemini/Ollama SSE stream)
+- `/api/health` → Edge Function
+- All other routes → `index.html` (client-side TanStack Router)
+- File operations remain 100% client-side via File System Access API
+
+---
+
 ## 2026-05-20 — feat: Replace all SVG icons with Phosphor Icons
 
 ### Overview

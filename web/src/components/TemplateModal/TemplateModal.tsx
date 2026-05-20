@@ -82,6 +82,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
     <>
       {/* Backdrop */}
       <div
+        data-testid="template-modal-backdrop"
         onClick={onClose}
         style={{
           position: "fixed",
@@ -93,6 +94,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
 
       {/* Modal */}
       <div
+        data-testid="template-modal"
         style={{
           position: "fixed",
           top: "10%",
@@ -126,6 +128,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
             New from Template
           </span>
           <button
+            data-testid="template-modal-close-btn"
             onClick={onClose}
             style={{
               background: "none",
@@ -193,6 +196,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <LocationOption
+                  data-testid="template-location-subfolder"
                   active={location === "subfolder"}
                   onClick={() => setLocation("subfolder")}
                   icon={<FolderPlus size={16} />}
@@ -200,6 +204,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                   hint="Creates a new folder with the project name"
                 />
                 <LocationOption
+                  data-testid="template-location-current"
                   active={location === "current"}
                   onClick={() => setLocation("current")}
                   icon={<FolderOpen size={16} />}
@@ -217,6 +222,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
                 {location === "subfolder" ? "Folder name" : "Project name"}
               </label>
               <input
+                data-testid="template-project-name-input"
                 ref={inputRef}
                 value={projectName}
                 onChange={(e) => { setProjectName(e.target.value); setError(null); }}
@@ -296,6 +302,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
           }}
         >
           <button
+            data-testid="template-cancel-btn"
             onClick={onClose}
             style={{
               padding: "7px 16px",
@@ -310,6 +317,7 @@ export function TemplateModal({ open, onClose, onConfirm }: TemplateModalProps) 
             Cancel
           </button>
           <button
+            data-testid="template-create-btn"
             onClick={handleCreate}
             disabled={creating || !projectName.trim()}
             style={{
@@ -337,15 +345,18 @@ function LocationOption({
   icon,
   label,
   hint,
+  "data-testid": dataTestId,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
   label: string;
   hint: string;
+  "data-testid"?: string;
 }) {
   return (
     <div
+      data-testid={dataTestId}
       onClick={onClick}
       style={{
         flex: 1,
@@ -377,6 +388,7 @@ function TemplateCard({
 }) {
   return (
     <div
+      data-testid={`template-card-${template.id}`}
       onClick={onClick}
       style={{
         padding: "10px 12px",
