@@ -1,1 +1,1 @@
-{"version":"0.0.1","configurations":[{"name":"arch-doc-web","runtimeExecutable":"/bin/bash","runtimeArgs":["/Users/gumpnart/Developments/arch-ai/web/dev.sh"],"port":3000}]}
+{"version":"0.0.1","configurations":[{"name":"arch-doc-web","runtimeExecutable":"pnpm","runtimeArgs":["run","dev"],"cwd":"D:\\developments\\software-arch-ai\\web","port":3000}]}
