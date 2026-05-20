@@ -3,6 +3,9 @@
   "outputDirectory": "dist/client",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": null,
+  "regions": [
+    "sin1"
+  ],
   "rewrites": [
     {
       "source": "/((?!api/).*)",
