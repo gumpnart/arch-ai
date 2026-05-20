@@ -354,22 +354,6 @@ export default function App() {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
-        {/* New file / folder actions */}
-        {folderOpen && (
-          <>
-            <RailIcon data-testid="rail-new-file-btn" title="New markdown file" onClick={() => handleNewFile(null, "untitled.md")}>
-              <FilePlus size={16} />
-            </RailIcon>
-            <RailIcon data-testid="rail-new-drawing-btn" title="New drawing" onClick={() => handleNewExcalidraw(null)}>
-              <PenNib size={16} />
-            </RailIcon>
-          </>
-        )}
-
-        <RailIcon data-testid="rail-open-folder-btn" title="Open folder" onClick={handleOpenFolder}>
-          <FolderOpen size={17} />
-        </RailIcon>
-
         {/* Avatar */}
         <div
           data-testid="workspace-avatar"
