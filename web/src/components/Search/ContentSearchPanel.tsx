@@ -29,12 +29,13 @@ export function ContentSearchPanel({
   const isIdle = !search.query.trim();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+    <div data-testid="content-search-panel" style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
       {/* Search input + options */}
       <div style={{ padding: "var(--sp-2) 10px 6px", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
         {/* Input row */}
         <div style={{ position: "relative", marginBottom: 6 }}>
           <input
+            data-testid="content-search-input"
             ref={inputRef}
             value={search.query}
             onChange={(e) => search.setQuery(e.target.value)}
@@ -59,6 +60,7 @@ export function ContentSearchPanel({
           />
           {search.query && (
             <button
+              data-testid="content-search-clear-btn"
               onClick={() => { search.clear(); inputRef.current?.focus(); }}
               title="Clear"
               style={{
@@ -75,18 +77,21 @@ export function ContentSearchPanel({
         {/* Option toggles */}
         <div style={{ display: "flex", gap: 4 }}>
           <OptionToggle
+            data-testid="content-search-case-btn"
             active={search.options.caseSensitive}
             onClick={() => search.setOption("caseSensitive", !search.options.caseSensitive)}
             title="Match case"
             label="Aa"
           />
           <OptionToggle
+            data-testid="content-search-word-btn"
             active={search.options.wholeWord}
             onClick={() => search.setOption("wholeWord", !search.options.wholeWord)}
             title="Match whole word"
             label="ab|"
           />
           <OptionToggle
+            data-testid="content-search-regex-btn"
             active={search.options.useRegex}
             onClick={() => search.setOption("useRegex", !search.options.useRegex)}
             title="Use regular expression"
@@ -137,7 +142,7 @@ export function ContentSearchPanel({
       )}
 
       {/* Results list */}
-      <div style={{ flex: 1, overflowY: "auto" }}>
+      <div data-testid="content-search-results" style={{ flex: 1, overflowY: "auto" }}>
         {isIdle ? (
           <div style={{ padding: "20px 12px", textAlign: "center", color: "var(--text-3)", fontSize: "var(--text-sm)" }}>
             Type to search across all files
@@ -177,7 +182,7 @@ function FileResultGroup({
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div>
+    <div data-testid="content-search-file-group">
       {/* File header */}
       <div
         onClick={() => setCollapsed((c) => !c)}
@@ -267,6 +272,7 @@ function MatchRow({
 
   return (
     <div
+      data-testid="content-search-match"
       onClick={onSelect}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -350,14 +356,17 @@ function OptionToggle({
   onClick,
   title,
   label,
+  "data-testid": dataTestId,
 }: {
   active: boolean;
   onClick: () => void;
   title: string;
   label: string;
+  "data-testid"?: string;
 }) {
   return (
     <button
+      data-testid={dataTestId}
       onClick={onClick}
       title={title}
       style={{

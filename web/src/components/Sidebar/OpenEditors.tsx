@@ -18,7 +18,7 @@ export function OpenEditors({
   if (openFiles.length === 0) return null;
 
   return (
-    <div style={{ flexShrink: 0 }}>
+    <div data-testid="open-editors" style={{ flexShrink: 0 }}>
       <SectionLabel>Open</SectionLabel>
 
       {openFiles.map((path) => (
@@ -51,6 +51,7 @@ function OpenEditorRow({
 
   return (
     <div
+      data-testid="open-editor-row"
       onClick={() => onSelect(path)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
@@ -86,6 +87,7 @@ function OpenEditorRow({
 
       {hovered && (
         <button
+          data-testid="open-editor-close-btn"
           onClick={(e) => { e.stopPropagation(); onClose(path); }}
           title="Close"
           style={{

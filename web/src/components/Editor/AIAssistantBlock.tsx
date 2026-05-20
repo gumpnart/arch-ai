@@ -78,6 +78,7 @@ export const AIAssistantBlock = createReactBlockSpec(
 
       return (
         <div
+          data-testid="ai-assistant-block"
           style={{
             border: "1.5px solid #c7d2fe",
             borderRadius: 8,
@@ -115,6 +116,7 @@ export const AIAssistantBlock = createReactBlockSpec(
           {/* Prompt + controls */}
           <div style={{ padding: "10px 12px", background: "#f8f9ff" }}>
             <textarea
+              data-testid="ai-prompt-textarea"
               value={prompt}
               onChange={(e) =>
                 editor.updateBlock(block, { props: { ...block.props, prompt: e.target.value } })
@@ -150,6 +152,7 @@ export const AIAssistantBlock = createReactBlockSpec(
                 }}
               >
                 <input
+                  data-testid="ai-stable-docs-checkbox"
                   type="checkbox"
                   checked={useStableDocs === "true"}
                   disabled={isStreaming}
@@ -172,6 +175,7 @@ export const AIAssistantBlock = createReactBlockSpec(
                 {isActive && (
                   <>
                     <button
+                      data-testid="ai-accept-btn"
                       onClick={handleAccept}
                       disabled={isStreaming}
                       style={{
@@ -188,6 +192,7 @@ export const AIAssistantBlock = createReactBlockSpec(
                       Accept
                     </button>
                     <button
+                      data-testid="ai-discard-btn"
                       onClick={handleDiscard}
                       style={{
                         fontSize: 12,
@@ -204,6 +209,7 @@ export const AIAssistantBlock = createReactBlockSpec(
                   </>
                 )}
                 <button
+                  data-testid="ai-generate-btn"
                   onClick={handleGenerate}
                   disabled={!prompt.trim() || isStreaming}
                   style={{

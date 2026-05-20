@@ -12,6 +12,7 @@ interface ButtonProps {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
   style?: CSSProperties;
   type?: "button" | "submit" | "reset";
+  "data-testid"?: string;
 }
 
 const BASE: CSSProperties = {
@@ -80,6 +81,7 @@ export function Button({
   onClick,
   style,
   type = "button",
+  "data-testid": dataTestId,
 }: ButtonProps) {
   const sizeStyle = variant === "icon" ? ICON_SIZES[size] : SIZES[size];
 
@@ -89,6 +91,7 @@ export function Button({
       title={title}
       disabled={disabled}
       onClick={onClick}
+      data-testid={dataTestId}
       style={{
         ...BASE,
         ...VARIANTS[variant],

@@ -10,6 +10,7 @@ interface InputProps {
   title?: string;
   style?: CSSProperties;
   inputRef?: Ref<HTMLInputElement>;
+  "data-testid"?: string;
   onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
@@ -40,6 +41,7 @@ export function Input({
   title,
   style,
   inputRef,
+  "data-testid": dataTestId,
   onChange,
   onKeyDown,
   onFocus,
@@ -55,6 +57,7 @@ export function Input({
       readOnly={readOnly}
       autoFocus={autoFocus}
       title={title}
+      data-testid={dataTestId}
       style={{ ...BASE, ...style }}
       onChange={onChange}
       onKeyDown={onKeyDown}
