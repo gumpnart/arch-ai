@@ -1,22 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { readSettings } from "../../../lib/server/settings.js";
 
-const GEMINI_API_KEY  = process.env.GEMINI_API_KEY  ?? "";
-const GEMINI_MODEL    = process.env.GEMINI_MODEL    ?? "gemma-4-31b-it";
-const OLLAMA_URL      = process.env.OLLAMA_URL      ?? "http://localhost:11434";
-const OLLAMA_API_KEY  = process.env.OLLAMA_API_KEY  ?? "";
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    ?? "gemma4:2b";
-
-/** Strip CRLF/NUL and cap length — prevents HTTP header injection. */
-function sanitizeHeader(value: string, maxLen = 500): string {
-  return value.replace(/[\r\n\0]/g, "").slice(0, maxLen);
-}
-
-/**
- * Only allow http/https schemes for client-supplied Ollama URL.
- * Rejects file://, data://, ftp://, and other protocols that could
- * turn the server into an SSRF proxy.
- */
 function validateHttpUrl(raw: string): string | null {
   try {
     const url = new URL(raw);
@@ -27,11 +12,6 @@ function validateHttpUrl(raw: string): string | null {
   }
 }
 
-/**
- * Remove any occurrence of the API key from an error message before
- * sending it to the client, so a Gemini SDK error that echoes the key
- * does not expose it in the SSE stream.
- */
 function redactKey(message: string, key: string): string {
   if (!key) return message;
   return message.split(key).join("[REDACTED]");
@@ -53,7 +33,6 @@ function sseError(error: string): string {
 
 const SSE_DONE = "data: [DONE]\n\n";
 
-// Route will be registered in routeTree after first `vite dev` run
 export const Route = (createFileRoute as any)("/api/ai/chat")({
   server: {
     handlers: {
@@ -66,29 +45,20 @@ export const Route = (createFileRoute as any)("/api/ai/chat")({
         if (!prompt?.trim())
           return Response.json({ error: "prompt is required" }, { status: 400 });
 
-        // Client-supplied values take precedence over server env vars.
-        // All values are sanitized before use to prevent header injection.
-        const clientProvider    = sanitizeHeader(request.headers.get("x-ai-provider")    ?? "auto", 10);
-        const clientGeminiKey   = sanitizeHeader(request.headers.get("x-gemini-api-key") ?? "", 200);
-        const clientGeminiModel = sanitizeHeader(request.headers.get("x-gemini-model")   ?? "", 100);
-        const rawOllamaUrl      = sanitizeHeader(request.headers.get("x-ollama-url")     ?? "", 200);
-        const clientOllamaKey   = sanitizeHeader(request.headers.get("x-ollama-api-key") ?? "", 200);
-        const clientOllamaModel = sanitizeHeader(request.headers.get("x-ollama-model")   ?? "", 100);
+        // All AI config comes from the server-side encrypted store.
+        // Env vars are the fallback for zero-config deployments.
+        const stored = readSettings();
+        const geminiKey  = stored.geminiApiKey  || (process.env.GEMINI_API_KEY  ?? "");
+        const geminiModel =                         process.env.GEMINI_MODEL    ?? "gemma-4-31b-it";
+        const ollamaUrl  = (stored.ollamaUrl && validateHttpUrl(stored.ollamaUrl))
+          || (process.env.OLLAMA_URL  ?? "http://localhost:11434");
+        const ollamaKey  = stored.ollamaApiKey  || (process.env.OLLAMA_API_KEY  ?? "");
+        const ollamaModel =                         process.env.OLLAMA_MODEL    ?? "gemma4:2b";
 
-        // SSRF guard: reject non-http/https schemes in client-supplied Ollama URL.
-        const clientOllamaUrl = rawOllamaUrl ? validateHttpUrl(rawOllamaUrl) : null;
-        if (rawOllamaUrl && !clientOllamaUrl)
-          return Response.json({ error: "invalid ollama URL" }, { status: 400 });
-
-        const geminiKey   = clientGeminiKey   || GEMINI_API_KEY;
-        const geminiModel = clientGeminiModel || GEMINI_MODEL;
-        const ollamaUrl     = clientOllamaUrl      || OLLAMA_URL;
-        const ollamaApiKey  = clientOllamaKey      || OLLAMA_API_KEY;
-        const ollamaModel   = clientOllamaModel    || OLLAMA_MODEL;
-
+        const provider = stored.provider || "auto";
         const useGemini =
-          clientProvider === "gemini" ||
-          (clientProvider !== "ollama" && Boolean(geminiKey));
+          provider === "gemini" ||
+          (provider !== "ollama" && Boolean(geminiKey));
 
         const systemInstruction = context
           ? `You are a technical writing assistant. Use the following stable project documentation as context when answering:\n\n${context}\n\nNow fulfill the user's request.`
@@ -109,8 +79,6 @@ export const Route = (createFileRoute as any)("/api/ai/chat")({
                   if (text) controller.enqueue(enc.encode(sseChunk(text)));
                 }
               } catch (err) {
-                // Redact the key before sending the error to the client — Gemini
-                // SDK errors sometimes echo request metadata including the key.
                 const safe = redactKey(String(err), geminiKey);
                 controller.enqueue(enc.encode(sseError(safe)));
               } finally {
@@ -122,17 +90,17 @@ export const Route = (createFileRoute as any)("/api/ai/chat")({
           return new Response(stream, { headers: SSE_HEADERS });
         }
 
-        // Ollama fallback (OpenAI-compatible streaming)
+        // Ollama / OpenAI-compatible fallback
         const stream = new ReadableStream({
           async start(controller) {
             const enc = new TextEncoder();
             try {
-              const ollamaHeaders: Record<string, string> = { "Content-Type": "application/json" };
-              if (ollamaApiKey) ollamaHeaders["Authorization"] = `Bearer ${ollamaApiKey}`;
+              const headers: Record<string, string> = { "Content-Type": "application/json" };
+              if (ollamaKey) headers["Authorization"] = `Bearer ${ollamaKey}`;
 
               const upstream = await fetch(`${ollamaUrl}/v1/chat/completions`, {
                 method: "POST",
-                headers: ollamaHeaders,
+                headers,
                 body: JSON.stringify({
                   model: ollamaModel,
                   messages: [{ role: "user", content: fullPrompt }],

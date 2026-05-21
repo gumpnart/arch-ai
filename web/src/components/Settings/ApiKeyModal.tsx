@@ -1,27 +1,47 @@
 import { useState, useEffect } from "react";
-import type { ApiKeySettings, AIProvider, StorageMode } from "../../lib/apiKeys.js";
+import type { ApiKeyStatus, AIProvider, SaveSettingsPatch } from "../../lib/apiKeys.js";
 import { isValidGeminiKey, isValidHttpUrl } from "../../lib/apiKeys.js";
 
 interface ApiKeyModalProps {
   open: boolean;
-  settings: ApiKeySettings;
-  onSave: (next: Partial<ApiKeySettings>) => Promise<void>;
-  onClear: () => void;
+  settings: ApiKeyStatus;
+  onSave: (patch: SaveSettingsPatch) => Promise<void>;
+  onClear: () => Promise<void>;
   onClose: () => void;
 }
 
+interface FormState {
+  provider: AIProvider;
+  geminiApiKey: string;
+  ollamaUrl: string;
+  ollamaApiKey: string;
+}
+
 export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKeyModalProps) {
-  const [form, setForm] = useState<ApiKeySettings>(settings);
-  const [errors, setErrors] = useState<Partial<Record<keyof ApiKeySettings, string>>>({});
+  const [form, setForm] = useState<FormState>({
+    provider: "auto",
+    geminiApiKey: "",
+    ollamaUrl: "",
+    ollamaApiKey: "",
+  });
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) { setForm(settings); setErrors({}); }
+    if (open) {
+      setForm({
+        provider: settings.provider,
+        geminiApiKey: "",
+        ollamaUrl: settings.ollamaUrl,
+        ollamaApiKey: "",
+      });
+      setErrors({});
+    }
   }, [open, settings]);
 
   if (!open) return null;
 
-  const set = (field: keyof ApiKeySettings, value: string) => {
+  const set = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
@@ -42,19 +62,23 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
     if (!validate()) return;
     setSaving(true);
     try {
-      await onSave(form);
+      const patch: SaveSettingsPatch = {
+        provider: form.provider,
+        ollamaUrl: form.ollamaUrl,
+      };
+      if (form.geminiApiKey) patch.geminiApiKey = form.geminiApiKey;
+      if (form.ollamaApiKey) patch.ollamaApiKey = form.ollamaApiKey;
+      await onSave(patch);
       onClose();
     } finally {
       setSaving(false);
     }
   };
 
-  const handleClear = () => {
-    onClear();
+  const handleClear = async () => {
+    await onClear();
     onClose();
   };
-
-  const isSession = form.storageMode === "session";
 
   return (
     <div
@@ -103,12 +127,15 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
         {(form.provider === "auto" || form.provider === "gemini") && (
           <>
             <Divider label="Gemini" />
-            <Field label="API Key" error={errors.geminiApiKey}>
+            {settings.hasGeminiKey && (
+              <p style={{ fontSize: 11, color: "#a6e3a1", margin: "0 0 8px" }}>✓ Key saved on server</p>
+            )}
+            <Field label={settings.hasGeminiKey ? "Replace key" : "API Key"} error={errors.geminiApiKey}>
               <input
                 type="password"
                 value={form.geminiApiKey}
                 onChange={(e) => set("geminiApiKey", e.target.value)}
-                placeholder="AIza…"
+                placeholder={settings.hasGeminiKey ? "Enter new key to replace…" : "AIza…"}
                 style={{ ...inputStyle, borderColor: errors.geminiApiKey ? "#f38ba8" : "#313244" }}
                 autoComplete="off"
               />
@@ -120,7 +147,7 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
         {(form.provider === "auto" || form.provider === "ollama") && (
           <>
             <Divider label="Ollama" />
-            <Field label="Base URL (optional)" error={errors.ollamaUrl}>
+            <Field label="Base URL" error={errors.ollamaUrl}>
               <input
                 type="text"
                 value={form.ollamaUrl}
@@ -129,25 +156,8 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
                 style={{ ...inputStyle, borderColor: errors.ollamaUrl ? "#f38ba8" : "#313244" }}
               />
             </Field>
-</>
+          </>
         )}
-
-        {/* Storage mode */}
-        <Divider label="Storage" />
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <ModeButton
-            active={!isSession}
-            onClick={() => set("storageMode", "local")}
-            label="Persist"
-            description="Survives tab/browser restarts. Readable by JS on this page."
-          />
-          <ModeButton
-            active={isSession}
-            onClick={() => set("storageMode", "session")}
-            label="Session only"
-            description="Cleared when tab closes. Reduces risk if you share your machine."
-          />
-        </div>
 
         {/* Security notice */}
         <div style={{
@@ -161,15 +171,8 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
           lineHeight: 1.6,
         }}>
           <strong style={{ color: "#a6adc8" }}>Security notice</strong><br />
-          Your API key is encrypted with AES-256-GCM before being written to{" "}
-          {isSession ? "sessionStorage" : "localStorage"}.
-          The encryption key is stored in IndexedDB (non-extractable — its raw bytes cannot be read by JavaScript)
-          and persists across restarts, so you only need to enter your key once.{" "}
-          {isSession
-            ? "Session mode: the ciphertext is cleared when the tab closes."
-            : "Local mode: the ciphertext survives restarts and is decrypted automatically."
-          }{" "}
-          Encryption does not protect against XSS on this page.
+          API keys are encrypted with AES-256-GCM and stored on the server.
+          The browser never holds your keys — not even temporarily.
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -177,7 +180,7 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={onClose} style={secondaryBtn}>Cancel</button>
             <button onClick={handleSave} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>
-              {saving ? "Encrypting…" : "Save"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
@@ -214,42 +217,6 @@ function Divider({ label }: { label: string }) {
       <span style={{ fontSize: 11, fontWeight: 600, color: "#6c7086", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</span>
       <div style={{ flex: 1, height: 1, background: "#313244" }} />
     </div>
-  );
-}
-
-function ModeButton({
-  active,
-  onClick,
-  label,
-  description,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  description: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={description}
-      style={{
-        flex: 1,
-        padding: "8px 10px",
-        background: active ? "#313244" : "#181825",
-        border: `1px solid ${active ? "#cba6f7" : "#313244"}`,
-        borderRadius: 6,
-        color: active ? "#cba6f7" : "#6c7086",
-        fontSize: 12,
-        fontWeight: active ? 600 : 400,
-        cursor: "pointer",
-        textAlign: "left" as const,
-      }}
-    >
-      <div>{label}</div>
-      <div style={{ fontSize: 10, marginTop: 2, opacity: 0.8, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-        {description}
-      </div>
-    </button>
   );
 }
 

@@ -7,13 +7,11 @@ import { useAIAssistant } from "../../hooks/useAIAssistant.js";
 interface AIAssistantContextValue {
   getStableDocsContext: () => Promise<string>;
   stableCount: number;
-  aiHeaders?: Record<string, string>;
 }
 
 export const AIAssistantContext = createContext<AIAssistantContextValue>({
   getStableDocsContext: async () => "",
   stableCount: 0,
-  aiHeaders: {},
 });
 
 // ── Block spec ────────────────────────────────────────────────────────────────
@@ -30,7 +28,7 @@ export const AIAssistantBlock = createReactBlockSpec(
   },
   {
     render: ({ block, editor }) => {
-      const { getStableDocsContext, stableCount, aiHeaders } = useContext(AIAssistantContext);
+      const { getStableDocsContext, stableCount } = useContext(AIAssistantContext);
       const { prompt, useStableDocs, generatedText } = block.props as {
         prompt: string;
         useStableDocs: string;
@@ -59,7 +57,7 @@ export const AIAssistantBlock = createReactBlockSpec(
           const raw = await getStableDocsContext();
           if (raw) ctx = raw;
         }
-        generate(prompt, ctx, aiHeaders);
+        generate(prompt, ctx);
       };
 
       const handleAccept = async () => {

@@ -1,5 +1,28 @@
 # Change Log
 
+## 2026-05-21 — security: Move API key storage to server side
+
+**Breaking change**: API keys are no longer stored in the browser. The `VITE_ENCRYPTION_SECRET` env var is removed; replace it with the server-only `ENCRYPTION_KEY`. Users must re-enter their keys after upgrading.
+
+### What changed
+
+| Area | Change |
+|---|---|
+| `web/src/lib/server/settings.ts` | New — Node.js AES-256-GCM encryption using `process.env.ENCRYPTION_KEY`; writes/reads `.arch-doc-settings.json` on disk |
+| `web/src/routes/api/settings/index.ts` | New — `GET /api/settings` returns non-sensitive status (`hasGeminiKey`, `hasOllamaKey`); `POST` saves keys server-side; `DELETE` clears all |
+| `web/src/routes/api/ai/chat.ts` | Reads keys from server store instead of `x-gemini-api-key` / `x-ollama-api-key` request headers |
+| `web/src/routes/api/ai/ping.ts` | Same — no client-supplied keys accepted |
+| `web/src/lib/apiKeys.ts` | Stripped to non-sensitive types only — no encryption, no localStorage key storage |
+| `web/src/lib/crypto.ts` | Deleted — client-side AES-GCM no longer used |
+| `web/src/hooks/useApiKeys.ts` | Fetches `/api/settings` for status; save/clear hit the server |
+| `web/src/contexts/ApiKeysContext.tsx` | Removed `headers` from context value (no keys in request headers) |
+| `web/src/components/Settings/SettingsPage.tsx` | Form POSTs keys to server; key fields clear after save; shows "Key saved on server" badge |
+| `web/src/components/Settings/ApiKeyModal.tsx` | Updated to new server-based save/clear API |
+| `web/src/components/Editor/AIAssistantBlock.tsx` | Removed `aiHeaders` from context and generate call |
+| `web/src/components/Editor/DocEditor.tsx` | Removed `aiHeaders` prop |
+| `web/.env.example` | Replaced `VITE_ENCRYPTION_SECRET` with `ENCRYPTION_KEY` (server-only) |
+| `web/.gitignore` | Added `.arch-doc-settings.json` |
+
 ## 2026-05-21 — feat: Harden API key settings (env-derived encryption, no model config, connection test)
 
 ### Changes

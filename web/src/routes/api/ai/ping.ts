@@ -1,15 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? "gemma-4-31b-it";
-const OLLAMA_URL     = process.env.OLLAMA_URL      ?? "http://localhost:11434";
-const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY  ?? "";
-const OLLAMA_MODEL   = process.env.OLLAMA_MODEL    ?? "gemma4:2b";
-
-function sanitizeHeader(value: string, maxLen = 500): string {
-  return value.replace(/[\r\n\0]/g, "").slice(0, maxLen);
-}
+import { readSettings } from "../../../lib/server/settings.js";
 
 function validateHttpUrl(raw: string): string | null {
   try {
@@ -24,32 +15,27 @@ function validateHttpUrl(raw: string): string | null {
 export const Route = (createFileRoute as any)("/api/ai/ping")({
   server: {
     handlers: {
-      POST: async ({ request }: { request: Request }) => {
-        const clientProvider    = sanitizeHeader(request.headers.get("x-ai-provider")    ?? "auto", 10);
-        const clientGeminiKey   = sanitizeHeader(request.headers.get("x-gemini-api-key") ?? "", 200);
-        const rawOllamaUrl      = sanitizeHeader(request.headers.get("x-ollama-url")     ?? "", 200);
-        const clientOllamaKey   = sanitizeHeader(request.headers.get("x-ollama-api-key") ?? "", 200);
-        const clientOllamaModel = sanitizeHeader(request.headers.get("x-ollama-model")   ?? "", 100);
+      POST: async () => {
+        // All AI config comes from the server-side encrypted store.
+        const stored = readSettings();
+        const geminiKey   = stored.geminiApiKey  || (process.env.GEMINI_API_KEY  ?? "");
+        const geminiModel =                          process.env.GEMINI_MODEL    ?? "gemma-4-31b-it";
+        const ollamaUrl   = (stored.ollamaUrl && validateHttpUrl(stored.ollamaUrl))
+          || (process.env.OLLAMA_URL  ?? "http://localhost:11434");
+        const ollamaKey   = stored.ollamaApiKey  || (process.env.OLLAMA_API_KEY  ?? "");
+        const ollamaModel =                          process.env.OLLAMA_MODEL    ?? "gemma4:2b";
 
-        const clientOllamaUrl = rawOllamaUrl ? validateHttpUrl(rawOllamaUrl) : null;
-        if (rawOllamaUrl && !clientOllamaUrl)
-          return Response.json({ ok: false, error: "Invalid Ollama URL" }, { status: 400 });
-
-        const geminiKey  = clientGeminiKey  || GEMINI_API_KEY;
-        const ollamaUrl  = clientOllamaUrl  || OLLAMA_URL;
-        const ollamaKey  = clientOllamaKey  || OLLAMA_API_KEY;
-        const ollamaModel = clientOllamaModel || OLLAMA_MODEL;
-
+        const provider = stored.provider || "auto";
         const useGemini =
-          clientProvider === "gemini" ||
-          (clientProvider !== "ollama" && Boolean(geminiKey));
+          provider === "gemini" ||
+          (provider !== "ollama" && Boolean(geminiKey));
 
         const t0 = Date.now();
 
         if (useGemini && geminiKey) {
           try {
             const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+            const model = genAI.getGenerativeModel({ model: geminiModel });
             await model.generateContent("ping");
             return Response.json({ ok: true, provider: "gemini", latencyMs: Date.now() - t0 });
           } catch (err) {
