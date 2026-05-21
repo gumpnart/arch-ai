@@ -5,11 +5,8 @@ import { useApiKeysContext } from "../../contexts/ApiKeysContext.js";
 import {
   isValidGeminiKey,
   isValidHttpUrl,
-  type ApiKeySettings,
   type AIProvider,
-  type StorageMode,
 } from "../../lib/apiKeys.js";
-import { buildAIHeaders } from "../../lib/apiKeys.js";
 
 // ── Page shell ────────────────────────────────────────────────────────────────
 
@@ -66,23 +63,43 @@ type ConnectionStatus =
   | { state: "ok"; provider: string; latencyMs?: number }
   | { state: "error"; message: string };
 
-// ── AI Provider section ───────────────────────────────────────────────────────
+// ── Form state (local only — keys are never stored client-side) ───────────────
 
-type FormErrors = Partial<Record<keyof ApiKeySettings, string>>;
+interface FormState {
+  provider: AIProvider;
+  geminiApiKey: string;
+  ollamaUrl: string;
+  ollamaApiKey: string;
+}
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+
+// ── AI Provider section ───────────────────────────────────────────────────────
 
 function AIProviderSection() {
   const { settings, save, clear, isReady } = useApiKeysContext();
 
-  const [form, setForm] = useState<ApiKeySettings>(settings);
+  const [form, setForm] = useState<FormState>({
+    provider: "auto",
+    geminiApiKey: "",
+    ollamaUrl: "",
+    ollamaApiKey: "",
+  });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [connStatus, setConnStatus] = useState<ConnectionStatus>({ state: "idle" });
 
   useEffect(() => {
-    if (isReady) setForm(settings);
-  }, [isReady]);
+    if (isReady) {
+      setForm((prev) => ({
+        ...prev,
+        provider: settings.provider,
+        ollamaUrl: settings.ollamaUrl,
+      }));
+    }
+  }, [isReady, settings.provider, settings.ollamaUrl]);
 
-  const set = (field: keyof ApiKeySettings, value: string) => {
+  const set = (field: keyof FormState, value: string) => {
     setForm((p) => ({ ...p, [field]: value }));
     setErrors((p) => ({ ...p, [field]: undefined }));
     setConnStatus({ state: "idle" });
@@ -103,12 +120,23 @@ function AIProviderSection() {
     setSaving(true);
     setConnStatus({ state: "idle" });
     try {
-      await save(form);
+      // Build patch — only include key fields if the user typed a value.
+      // Empty key field = keep existing server key (don't overwrite with blank).
+      const patch: Parameters<typeof save>[0] = {
+        provider: form.provider,
+        ollamaUrl: form.ollamaUrl,
+      };
+      if (form.geminiApiKey) patch.geminiApiKey = form.geminiApiKey;
+      if (form.ollamaApiKey) patch.ollamaApiKey = form.ollamaApiKey;
 
-      // Test connection with the freshly saved settings
+      await save(patch);
+
+      // Clear key inputs after save — the server holds them now
+      setForm((prev) => ({ ...prev, geminiApiKey: "", ollamaApiKey: "" }));
+
+      // Test connection with freshly saved settings
       setConnStatus({ state: "testing" });
-      const headers = buildAIHeaders(form);
-      const res = await fetch("/api/ai/ping", { method: "POST", headers });
+      const res = await fetch("/api/ai/ping", { method: "POST" });
       const json = (await res.json()) as { ok: boolean; provider?: string; latencyMs?: number; error?: string };
 
       if (json.ok) {
@@ -123,8 +151,9 @@ function AIProviderSection() {
     }
   };
 
-  const handleClear = () => {
-    clear();
+  const handleClear = async () => {
+    await clear();
+    setForm({ provider: "auto", geminiApiKey: "", ollamaUrl: "", ollamaApiKey: "" });
     setConnStatus({ state: "idle" });
   };
 
@@ -138,7 +167,7 @@ function AIProviderSection() {
       </h1>
       <p style={{ fontSize: 13, color: "var(--text-3)", margin: "0 0 32px", lineHeight: 1.6 }}>
         Configure the AI service that powers the AI Assistant block.
-        API keys are encrypted with AES-256-GCM before storage and never sent to the server at rest.
+        API keys are encrypted with AES-256-GCM and stored on the server — never in the browser.
       </p>
 
       {/* Provider selector */}
@@ -148,7 +177,7 @@ function AIProviderSection() {
             value={form.provider}
             onChange={(v) => set("provider", v as AIProvider)}
             options={[
-              { value: "auto",   label: "Auto — server env vars, then client key" },
+              { value: "auto",   label: "Auto — server env vars, then saved key" },
               { value: "gemini", label: "Gemini" },
               { value: "ollama", label: "Ollama / OpenAI-compatible" },
             ]}
@@ -164,11 +193,14 @@ function AIProviderSection() {
             hint="From Google AI Studio (aistudio.google.com)"
             error={errors.geminiApiKey}
           >
+            {settings.hasGeminiKey && !form.geminiApiKey && (
+              <KeySavedBadge onReplace={() => set("geminiApiKey", "")} />
+            )}
             <TextInput
               type="password"
               value={form.geminiApiKey}
               onChange={(v) => set("geminiApiKey", v)}
-              placeholder="AIza…"
+              placeholder={settings.hasGeminiKey ? "Enter new key to replace…" : "AIza…"}
               invalid={!!errors.geminiApiKey}
               autoComplete="off"
             />
@@ -195,45 +227,27 @@ function AIProviderSection() {
             label="API Key"
             hint="Optional — only needed for authenticated endpoints (e.g. Groq, OpenRouter)"
           >
+            {settings.hasOllamaKey && !form.ollamaApiKey && (
+              <KeySavedBadge onReplace={() => set("ollamaApiKey", "")} />
+            )}
             <TextInput
               type="password"
               value={form.ollamaApiKey}
               onChange={(v) => set("ollamaApiKey", v)}
-              placeholder="sk-…"
+              placeholder={settings.hasOllamaKey ? "Enter new key to replace…" : "sk-…"}
               autoComplete="off"
             />
           </Field>
         </Section>
       )}
 
-      {/* Storage */}
-      <Section title="Storage">
-        <p style={{ fontSize: 12, color: "var(--text-3)", margin: "0 0 12px", lineHeight: 1.6 }}>
-          The AES-256-GCM encryption key is derived from the deployment secret.
-          Choose where the encrypted ciphertext is stored.
-        </p>
-        <div style={{ display: "flex", gap: 10 }}>
-          <StorageCard
-            active={form.storageMode === "local"}
-            onClick={() => set("storageMode", "local")}
-            title="Local (recommended)"
-            description="Ciphertext in localStorage. Survives browser restarts."
-          />
-          <StorageCard
-            active={form.storageMode === "session"}
-            onClick={() => set("storageMode", "session")}
-            title="Session only"
-            description="Ciphertext in sessionStorage. Cleared when the tab closes."
-          />
-        </div>
-      </Section>
-
       {/* Security notice */}
       <Banner variant="success">
         <ShieldCheck size={15} weight="fill" style={{ flexShrink: 0 }} />
         <span>
-          API keys are encrypted with AES-256-GCM using a key derived from the deployment secret (PBKDF2).
-          A localStorage dump contains only ciphertext. XSS on this page is an acknowledged residual risk.
+          API keys are encrypted with AES-256-GCM on the server using a key derived from{" "}
+          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>ENCRYPTION_KEY</code>.
+          Keys never leave the server — the browser holds no secrets.
         </span>
       </Banner>
 
@@ -243,10 +257,25 @@ function AIProviderSection() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <ConnectionBadge status={connStatus} />
           <button onClick={handleSave} disabled={saving} style={{ ...primaryBtnStyle, opacity: saving ? 0.7 : 1 }}>
-            {saving ? (connStatus.state === "testing" ? "Testing…" : "Encrypting…") : "Save & test"}
+            {saving ? (connStatus.state === "testing" ? "Testing…" : "Saving…") : "Save & test"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Key saved badge ───────────────────────────────────────────────────────────
+
+function KeySavedBadge({ onReplace }: { onReplace: () => void }) {
+  void onReplace;
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 6,
+      fontSize: 12, color: "#16a34a", marginBottom: 6,
+    }}>
+      <span style={{ fontSize: 13 }}>✓</span>
+      Key saved on server
     </div>
   );
 }
@@ -277,7 +306,6 @@ function ConnectionBadge({ status }: { status: ConnectionStatus }) {
     );
   }
 
-  // error
   return (
     <span style={{ fontSize: 12, color: "#dc2626", maxWidth: 260, lineHeight: 1.4 }}>
       ✗ {status.message}
@@ -382,27 +410,6 @@ function Select({ value, onChange, options }: { value: string; onChange: (v: str
     }}>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
-  );
-}
-
-function StorageCard({ active, onClick, title, description }: { active: boolean; onClick: () => void; title: string; description: string }) {
-  return (
-    <button onClick={onClick} style={{
-      flex: 1, textAlign: "left", cursor: "pointer", padding: "12px 14px",
-      border: `1.5px solid ${active ? "var(--accent)" : "var(--border-mid)"}`,
-      borderRadius: 8, background: active ? "var(--accent-bg)" : "#fff",
-      fontFamily: "var(--font-sans)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-        <div style={{
-          width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-          border: `2px solid ${active ? "var(--accent)" : "var(--border-mid)"}`,
-          background: active ? "var(--accent)" : "#fff", boxSizing: "border-box",
-        }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: active ? "var(--accent)" : "var(--text-1)" }}>{title}</span>
-      </div>
-      <p style={{ fontSize: 12, color: "var(--text-3)", margin: 0, lineHeight: 1.5, paddingLeft: 22 }}>{description}</p>
-    </button>
   );
 }
 

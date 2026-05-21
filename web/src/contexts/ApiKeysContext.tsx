@@ -1,13 +1,12 @@
 import { createContext, useContext } from "react";
 import { useApiKeys } from "../hooks/useApiKeys.js";
-import type { ApiKeySettings } from "../lib/apiKeys.js";
+import type { ApiKeyStatus, SaveSettingsPatch } from "../lib/apiKeys.js";
 
 export interface ApiKeysContextValue {
-  settings: ApiKeySettings;
-  headers: Record<string, string>;
+  settings: ApiKeyStatus;
   isReady: boolean;
-  save: (next: Partial<ApiKeySettings>) => Promise<void>;
-  clear: () => void;
+  save: (patch: SaveSettingsPatch) => Promise<void>;
+  clear: () => Promise<void>;
 }
 
 export const ApiKeysContext = createContext<ApiKeysContextValue | null>(null);

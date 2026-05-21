@@ -4,7 +4,6 @@ import {
   FilePlus, PenNib, FolderOpen,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { useApiKeysContext } from "./contexts/ApiKeysContext.js";
 import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor } from "./components/Editor/DocEditor.js";
 import { ExcalidrawEditor } from "./components/Editor/ExcalidrawEditor.js";
@@ -76,7 +75,6 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [railView, setRailView] = useState<RailView>("explorer");
-  const { headers: aiHeaders } = useApiKeysContext();
   const local = useLocalFolder();
   const history = useFileHistory();
   const openEditors = useOpenEditors();
@@ -530,7 +528,6 @@ export default function App() {
               fileOps={fileOps}
               getStableDocsContext={getStableDocsContext}
               stableCount={stableCount}
-              aiHeaders={aiHeaders}
               {...navProps}
             />
           )

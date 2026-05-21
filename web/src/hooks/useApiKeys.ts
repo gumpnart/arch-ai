@@ -1,57 +1,41 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   DEFAULTS,
-  loadRawSettings,
-  decryptSettings,
+  fetchApiKeyStatus,
   saveApiKeySettings,
   clearApiKeySettings,
-  buildAIHeaders,
-  type ApiKeySettings,
+  type ApiKeyStatus,
+  type SaveSettingsPatch,
 } from "../lib/apiKeys.js";
 
-interface UseApiKeysResult {
-  settings: ApiKeySettings;
-  headers: Record<string, string>;
-  /** True once the initial async decryption pass is complete. */
+export interface UseApiKeysResult {
+  settings: ApiKeyStatus;
   isReady: boolean;
-  save: (next: Partial<ApiKeySettings>) => Promise<void>;
-  clear: () => void;
+  save: (patch: SaveSettingsPatch) => Promise<void>;
+  clear: () => Promise<void>;
 }
 
 export function useApiKeys(): UseApiKeysResult {
-  const [settings, setSettings] = useState<ApiKeySettings>(DEFAULTS);
+  const [settings, setSettings] = useState<ApiKeyStatus>(DEFAULTS);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    async function init() {
-      const raw = loadRawSettings();
-      const decrypted = await decryptSettings(raw);
-      if (cancelled) return;
-      setSettings(decrypted);
+    fetchApiKeyStatus().then((s) => {
+      setSettings(s);
       setIsReady(true);
-    }
-    init();
-    return () => { cancelled = true; };
+    });
   }, []);
 
-  const save = useCallback(async (next: Partial<ApiKeySettings>) => {
-    await saveApiKeySettings(next, settings);
-    const raw = loadRawSettings();
-    const decrypted = await decryptSettings(raw);
-    setSettings(decrypted);
-  }, [settings]);
+  const save = useCallback(async (patch: SaveSettingsPatch) => {
+    await saveApiKeySettings(patch);
+    const updated = await fetchApiKeyStatus();
+    setSettings(updated);
+  }, []);
 
-  const clear = useCallback(() => {
-    clearApiKeySettings();
+  const clear = useCallback(async () => {
+    await clearApiKeySettings();
     setSettings(DEFAULTS);
   }, []);
 
-  return {
-    settings,
-    headers: buildAIHeaders(settings),
-    isReady,
-    save,
-    clear,
-  };
+  return { settings, isReady, save, clear };
 }
