@@ -103,3 +103,7 @@
   --color-input: hsl(214.3 31.8% 91.4%);
   --color-ring: hsl(221.2 83.2% 53.3%);
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

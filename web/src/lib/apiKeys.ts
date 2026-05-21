@@ -7,7 +7,6 @@ export type AIProvider = "auto" | "gemini" | "ollama";
 /**
  * "local"   — ciphertext in localStorage, survives restarts (default).
  * "session" — ciphertext in sessionStorage, cleared on tab close (shared machines).
- * Either way the encryption key lives in IndexedDB and persists across sessions.
  */
 export type StorageMode = "local" | "session";
 
@@ -15,11 +14,9 @@ export interface ApiKeySettings {
   provider: AIProvider;
   // Gemini
   geminiApiKey: string;
-  geminiModel: string;
   // Ollama / OpenAI-compatible
   ollamaUrl: string;
   ollamaApiKey: string;
-  ollamaModel: string;
   // Storage
   storageMode: StorageMode;
 }
@@ -27,10 +24,8 @@ export interface ApiKeySettings {
 export const DEFAULTS: ApiKeySettings = {
   provider: "auto",
   geminiApiKey: "",
-  geminiModel: "",
   ollamaUrl: "",
   ollamaApiKey: "",
-  ollamaModel: "",
   storageMode: "local",
 };
 
@@ -47,30 +42,19 @@ function getStorage(mode: StorageMode): Storage {
 
 /** Read raw (possibly still-encrypted) values from storage — synchronous. */
 export function loadRawSettings(): ApiKeySettings {
-  // storageMode is always in localStorage so we know which store to open.
   const mode = (localStorage.getItem(storeKey("storageMode")) ?? "local") as StorageMode;
   const store = getStorage(mode);
   return {
-    provider:      (store.getItem(storeKey("provider"))     ?? DEFAULTS.provider) as AIProvider,
-    geminiApiKey:   store.getItem(storeKey("geminiApiKey")) ?? "",
-    geminiModel:    store.getItem(storeKey("geminiModel"))  ?? "",
-    ollamaUrl:      store.getItem(storeKey("ollamaUrl"))    ?? "",
-    ollamaApiKey:   store.getItem(storeKey("ollamaApiKey")) ?? "",
-    ollamaModel:    store.getItem(storeKey("ollamaModel"))  ?? "",
+    provider:    (store.getItem(storeKey("provider"))     ?? DEFAULTS.provider) as AIProvider,
+    geminiApiKey: store.getItem(storeKey("geminiApiKey")) ?? "",
+    ollamaUrl:    store.getItem(storeKey("ollamaUrl"))    ?? "",
+    ollamaApiKey: store.getItem(storeKey("ollamaApiKey")) ?? "",
     storageMode: mode,
   };
 }
 
-/**
- * Decrypt any encrypted fields in `raw`.
- * Returns `{ settings, wasLocked }`.
- * `wasLocked = true` means IndexedDB was cleared — those fields are wiped
- * and the user will be prompted to re-enter them.
- */
-export async function decryptSettings(
-  raw: ApiKeySettings,
-): Promise<{ settings: ApiKeySettings; wasLocked: boolean }> {
-  let wasLocked = false;
+/** Decrypt any encrypted fields in `raw`. Silently clears fields that fail decryption. */
+export async function decryptSettings(raw: ApiKeySettings): Promise<ApiKeySettings> {
   const result = { ...raw };
 
   for (const field of SENSITIVE_FIELDS) {
@@ -79,16 +63,14 @@ export async function decryptSettings(
 
     const plaintext = await decrypt(value);
     if (plaintext === null) {
-      // Encryption key gone (IndexedDB cleared) — remove the unreadable blob.
       result[field] = "" as never;
-      wasLocked = true;
       getStorage(raw.storageMode).removeItem(storeKey(field));
     } else {
       result[field] = plaintext as never;
     }
   }
 
-  return { settings: result, wasLocked };
+  return result;
 }
 
 /** Encrypt sensitive fields and write all settings to storage. */
@@ -102,10 +84,9 @@ export async function saveApiKeySettings(
     clearApiKeySettings();
   }
 
-  // storageMode pointer always lives in localStorage.
   localStorage.setItem(storeKey("storageMode"), mode);
 
-  const store  = getStorage(mode);
+  const store = getStorage(mode);
   const merged = { ...current, ...next, storageMode: mode };
 
   for (const field of Object.keys(DEFAULTS) as (keyof ApiKeySettings)[]) {
@@ -126,12 +107,10 @@ export function clearApiKeySettings(): void {
 
 export function buildAIHeaders(settings: ApiKeySettings): Record<string, string> {
   const h: Record<string, string> = {};
-  if (settings.provider !== "auto") h["x-ai-provider"]       = settings.provider;
-  if (settings.geminiApiKey)        h["x-gemini-api-key"]    = settings.geminiApiKey;
-  if (settings.geminiModel)         h["x-gemini-model"]      = settings.geminiModel;
-  if (settings.ollamaUrl)           h["x-ollama-url"]        = settings.ollamaUrl;
-  if (settings.ollamaApiKey)        h["x-ollama-api-key"]    = settings.ollamaApiKey;
-  if (settings.ollamaModel)         h["x-ollama-model"]      = settings.ollamaModel;
+  if (settings.provider !== "auto") h["x-ai-provider"]    = settings.provider;
+  if (settings.geminiApiKey)        h["x-gemini-api-key"] = settings.geminiApiKey;
+  if (settings.ollamaUrl)           h["x-ollama-url"]     = settings.ollamaUrl;
+  if (settings.ollamaApiKey)        h["x-ollama-api-key"] = settings.ollamaApiKey;
   return h;
 }
 
