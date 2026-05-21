@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import {
-  House, MagnifyingGlass, SquaresFour, Lightning,
+  House, MagnifyingGlass, SquaresFour, Lightning, Gear,
   FilePlus, PenNib, FolderOpen,
 } from "@phosphor-icons/react";
+import { Link } from "@tanstack/react-router";
+import { useApiKeysContext } from "./contexts/ApiKeysContext.js";
 import { FileTree } from "./components/Sidebar/FileTree.js";
 import { DocEditor } from "./components/Editor/DocEditor.js";
 import { ExcalidrawEditor } from "./components/Editor/ExcalidrawEditor.js";
@@ -74,6 +76,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [railView, setRailView] = useState<RailView>("explorer");
+  const { headers: aiHeaders, wasLocked } = useApiKeysContext();
   const local = useLocalFolder();
   const history = useFileHistory();
   const openEditors = useOpenEditors();
@@ -354,6 +357,30 @@ export default function App() {
         {/* Spacer */}
         <div style={{ flex: 1 }} />
 
+        {/* Settings */}
+        <Link
+          to="/settings"
+          data-testid="rail-settings-btn"
+          title="Settings"
+          style={{
+            width: 36, height: 36,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            borderRadius: 8,
+            color: wasLocked ? "#f9e2af" : "var(--rail-icon)",
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.background = "#27272a";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--rail-icon-hover)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.background = "none";
+            (e.currentTarget as HTMLAnchorElement).style.color = wasLocked ? "#f9e2af" : "var(--rail-icon)";
+          }}
+        >
+          <Gear size={18} />
+        </Link>
+
         {/* Avatar */}
         <div
           data-testid="workspace-avatar"
@@ -503,6 +530,7 @@ export default function App() {
               fileOps={fileOps}
               getStableDocsContext={getStableDocsContext}
               stableCount={stableCount}
+              aiHeaders={aiHeaders}
               {...navProps}
             />
           )
@@ -533,6 +561,7 @@ export default function App() {
         onClose={() => setTemplateModalOpen(false)}
         onConfirm={handleNewFromTemplate}
       />
+
     </div>
   );
 }

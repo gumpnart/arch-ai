@@ -8,7 +8,11 @@ export function useAIAssistant() {
   const [error, setError] = useState("");
   const abortRef = useRef<AbortController | null>(null);
 
-  const generate = useCallback(async (prompt: string, context?: string) => {
+  const generate = useCallback(async (
+    prompt: string,
+    context?: string,
+    extraHeaders?: Record<string, string>,
+  ) => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -20,7 +24,7 @@ export function useAIAssistant() {
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...extraHeaders },
         body: JSON.stringify({ prompt, context }),
         signal: ctrl.signal,
       });

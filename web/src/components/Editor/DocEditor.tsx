@@ -134,6 +134,7 @@ export function DocEditor({
   fileOps,
   getStableDocsContext,
   stableCount = 0,
+  aiHeaders,
   folderName,
   canGoBack,
   canGoForward,
@@ -146,6 +147,7 @@ export function DocEditor({
   fileOps: FileOps;
   getStableDocsContext: () => Promise<string>;
   stableCount?: number;
+  aiHeaders?: Record<string, string>;
 } & DocEditorNavProps) {
   const [loadState, setLoadState] = useState<LoadState | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -195,6 +197,7 @@ export function DocEditor({
       fileOps={fileOps}
       getStableDocsContext={getStableDocsContext}
       stableCount={stableCount}
+      aiHeaders={aiHeaders}
       folderName={folderName}
       canGoBack={canGoBack}
       canGoForward={canGoForward}
@@ -214,6 +217,7 @@ function EditorInner({
   fileOps,
   getStableDocsContext,
   stableCount,
+  aiHeaders,
   folderName,
   canGoBack,
   canGoForward,
@@ -227,6 +231,7 @@ function EditorInner({
   fileOps: FileOps;
   getStableDocsContext: () => Promise<string>;
   stableCount: number;
+  aiHeaders?: Record<string, string>;
 } & DocEditorNavProps) {
   const [frontmatter, setFrontmatter] =
     useState<Frontmatter>(initialFrontmatter);
@@ -305,7 +310,7 @@ function EditorInner({
           <div style={{ maxWidth: "var(--editor-max-width)", margin: "0 auto", padding: "48px 28px" }}>
           {mounted && (
             <AIAssistantContext.Provider
-              value={{ getStableDocsContext, stableCount }}
+              value={{ getStableDocsContext, stableCount, aiHeaders }}
             >
               <BlockNoteView
                 editor={editor}
