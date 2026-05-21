@@ -1,5 +1,9 @@
 # Change Log
 
+## 2026-05-21 — fix: Resolve blank-page crash on app load
+
+**Bug fix**: `settings.ts` used static top-level `import` statements for `node:crypto`, `node:fs`, and `node:path`. TanStack Start SPA mode bundled these server-only route files into the client entry, causing the browser to throw `ReferenceError: process is not defined` / `node:crypto externalized` at module load time — silently preventing the entire React app from mounting. All Node.js imports are now lazy (`await import(...)` inside each function); `readSettings`, `writeSettings`, and `clearSettings` are now `async`.
+
 ## 2026-05-21 — security: Move API key storage to server side
 
 **Breaking change**: API keys are no longer stored in the browser. The `VITE_ENCRYPTION_SECRET` env var is removed; replace it with the server-only `ENCRYPTION_KEY`. Users must re-enter their keys after upgrading.

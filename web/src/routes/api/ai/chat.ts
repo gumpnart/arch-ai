@@ -47,7 +47,7 @@ export const Route = (createFileRoute as any)("/api/ai/chat")({
 
         // All AI config comes from the server-side encrypted store.
         // Env vars are the fallback for zero-config deployments.
-        const stored = readSettings();
+        const stored = await readSettings();
         const geminiKey  = stored.geminiApiKey  || (process.env.GEMINI_API_KEY  ?? "");
         const geminiModel =                         process.env.GEMINI_MODEL    ?? "gemma-4-31b-it";
         const ollamaUrl  = (stored.ollamaUrl && validateHttpUrl(stored.ollamaUrl))
