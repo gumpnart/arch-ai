@@ -6,7 +6,6 @@ export interface ApiKeysContextValue {
   settings: ApiKeySettings;
   headers: Record<string, string>;
   isReady: boolean;
-  wasLocked: boolean;
   save: (next: Partial<ApiKeySettings>) => Promise<void>;
   clear: () => void;
 }

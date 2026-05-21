@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ShieldCheck, Warning } from "@phosphor-icons/react";
+import { ArrowLeft, ShieldCheck } from "@phosphor-icons/react";
 import { useApiKeysContext } from "../../contexts/ApiKeysContext.js";
 import {
   isValidGeminiKey,
@@ -9,6 +9,7 @@ import {
   type AIProvider,
   type StorageMode,
 } from "../../lib/apiKeys.js";
+import { buildAIHeaders } from "../../lib/apiKeys.js";
 
 // ── Page shell ────────────────────────────────────────────────────────────────
 
@@ -57,17 +58,25 @@ export function SettingsPage() {
   );
 }
 
+// ── Connection status ─────────────────────────────────────────────────────────
+
+type ConnectionStatus =
+  | { state: "idle" }
+  | { state: "testing" }
+  | { state: "ok"; provider: string; latencyMs?: number }
+  | { state: "error"; message: string };
+
 // ── AI Provider section ───────────────────────────────────────────────────────
 
 type FormErrors = Partial<Record<keyof ApiKeySettings, string>>;
 
 function AIProviderSection() {
-  const { settings, save, clear, wasLocked, isReady } = useApiKeysContext();
+  const { settings, save, clear, isReady } = useApiKeysContext();
 
   const [form, setForm] = useState<ApiKeySettings>(settings);
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [connStatus, setConnStatus] = useState<ConnectionStatus>({ state: "idle" });
 
   useEffect(() => {
     if (isReady) setForm(settings);
@@ -76,7 +85,7 @@ function AIProviderSection() {
   const set = (field: keyof ApiKeySettings, value: string) => {
     setForm((p) => ({ ...p, [field]: value }));
     setErrors((p) => ({ ...p, [field]: undefined }));
-    setSaved(false);
+    setConnStatus({ state: "idle" });
   };
 
   const validate = (): boolean => {
@@ -92,10 +101,23 @@ function AIProviderSection() {
   const handleSave = async () => {
     if (!validate()) return;
     setSaving(true);
+    setConnStatus({ state: "idle" });
     try {
       await save(form);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+
+      // Test connection with the freshly saved settings
+      setConnStatus({ state: "testing" });
+      const headers = buildAIHeaders(form);
+      const res = await fetch("/api/ai/ping", { method: "POST", headers });
+      const json = (await res.json()) as { ok: boolean; provider?: string; latencyMs?: number; error?: string };
+
+      if (json.ok) {
+        setConnStatus({ state: "ok", provider: json.provider ?? "unknown", latencyMs: json.latencyMs });
+      } else {
+        setConnStatus({ state: "error", message: json.error ?? "Connection failed" });
+      }
+    } catch (err) {
+      setConnStatus({ state: "error", message: String(err) });
     } finally {
       setSaving(false);
     }
@@ -103,7 +125,7 @@ function AIProviderSection() {
 
   const handleClear = () => {
     clear();
-    setSaved(false);
+    setConnStatus({ state: "idle" });
   };
 
   const showGemini = form.provider === "auto" || form.provider === "gemini";
@@ -118,13 +140,6 @@ function AIProviderSection() {
         Configure the AI service that powers the AI Assistant block.
         API keys are encrypted with AES-256-GCM before storage and never sent to the server at rest.
       </p>
-
-      {wasLocked && (
-        <Banner variant="warn">
-          <Warning size={15} weight="fill" style={{ flexShrink: 0 }} />
-          The encryption key was reset (site data cleared). Please re-enter your API keys below.
-        </Banner>
-      )}
 
       {/* Provider selector */}
       <Section title="Provider">
@@ -158,13 +173,6 @@ function AIProviderSection() {
               autoComplete="off"
             />
           </Field>
-          <Field label="Model" hint="Leave blank to use the server default">
-            <TextInput
-              value={form.geminiModel}
-              onChange={(v) => set("geminiModel", v)}
-              placeholder="gemini-2.0-flash"
-            />
-          </Field>
         </Section>
       )}
 
@@ -195,20 +203,13 @@ function AIProviderSection() {
               autoComplete="off"
             />
           </Field>
-          <Field label="Model" hint="Leave blank to use the server default">
-            <TextInput
-              value={form.ollamaModel}
-              onChange={(v) => set("ollamaModel", v)}
-              placeholder="gemma4:2b"
-            />
-          </Field>
         </Section>
       )}
 
       {/* Storage */}
       <Section title="Storage">
         <p style={{ fontSize: 12, color: "var(--text-3)", margin: "0 0 12px", lineHeight: 1.6 }}>
-          The AES-256-GCM encryption key lives in IndexedDB and persists across restarts.
+          The AES-256-GCM encryption key is derived from the deployment secret.
           Choose where the encrypted ciphertext is stored.
         </p>
         <div style={{ display: "flex", gap: 10 }}>
@@ -231,8 +232,7 @@ function AIProviderSection() {
       <Banner variant="success">
         <ShieldCheck size={15} weight="fill" style={{ flexShrink: 0 }} />
         <span>
-          API keys are encrypted with AES-256-GCM. The encryption key is non-extractable
-          (stored in IndexedDB — its raw bytes cannot be read by JavaScript).
+          API keys are encrypted with AES-256-GCM using a key derived from the deployment secret (PBKDF2).
           A localStorage dump contains only ciphertext. XSS on this page is an acknowledged residual risk.
         </span>
       </Banner>
@@ -241,13 +241,57 @@ function AIProviderSection() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 8 }}>
         <button onClick={handleClear} style={dangerBtnStyle}>Clear all keys</button>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {saved && <span style={{ fontSize: 12, color: "#16a34a" }}>Saved</span>}
+          <ConnectionBadge status={connStatus} />
           <button onClick={handleSave} disabled={saving} style={{ ...primaryBtnStyle, opacity: saving ? 0.7 : 1 }}>
-            {saving ? "Encrypting…" : "Save changes"}
+            {saving ? (connStatus.state === "testing" ? "Testing…" : "Encrypting…") : "Save & test"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Connection badge ──────────────────────────────────────────────────────────
+
+function ConnectionBadge({ status }: { status: ConnectionStatus }) {
+  if (status.state === "idle") return null;
+
+  if (status.state === "testing") {
+    return (
+      <span style={{ fontSize: 12, color: "var(--text-3)", display: "flex", alignItems: "center", gap: 5 }}>
+        <SpinnerDot />
+        Testing connection…
+      </span>
+    );
+  }
+
+  if (status.state === "ok") {
+    const label = status.latencyMs != null
+      ? `Connected via ${status.provider} (${status.latencyMs}ms)`
+      : `Connected via ${status.provider}`;
+    return (
+      <span style={{ fontSize: 12, color: "#16a34a", display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ fontSize: 14 }}>✓</span>
+        {label}
+      </span>
+    );
+  }
+
+  // error
+  return (
+    <span style={{ fontSize: 12, color: "#dc2626", maxWidth: 260, lineHeight: 1.4 }}>
+      ✗ {status.message}
+    </span>
+  );
+}
+
+function SpinnerDot() {
+  return (
+    <span style={{
+      display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+      border: "2px solid var(--text-3)", borderTopColor: "transparent",
+      animation: "spin 0.7s linear infinite",
+    }} />
   );
 }
 
@@ -364,8 +408,8 @@ function StorageCard({ active, onClick, title, description }: { active: boolean;
 
 function Banner({ variant, children }: { variant: "warn" | "success"; children: React.ReactNode }) {
   const styles = variant === "warn"
-    ? { bg: "#fffbeb", border: "#fde68a", color: "#92400e", icon: "#d97706" }
-    : { bg: "#f0fdf4", border: "#bbf7d0", color: "#166534", icon: "#16a34a" };
+    ? { bg: "#fffbeb", border: "#fde68a", color: "#92400e" }
+    : { bg: "#f0fdf4", border: "#bbf7d0", color: "#166534" };
   return (
     <div style={{
       display: "flex", alignItems: "flex-start", gap: 10,

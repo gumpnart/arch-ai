@@ -113,15 +113,6 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
                 autoComplete="off"
               />
             </Field>
-            <Field label="Model (optional)">
-              <input
-                type="text"
-                value={form.geminiModel}
-                onChange={(e) => set("geminiModel", e.target.value)}
-                placeholder="gemini-2.0-flash (leave blank for server default)"
-                style={inputStyle}
-              />
-            </Field>
           </>
         )}
 
@@ -138,16 +129,7 @@ export function ApiKeyModal({ open, settings, onSave, onClear, onClose }: ApiKey
                 style={{ ...inputStyle, borderColor: errors.ollamaUrl ? "#f38ba8" : "#313244" }}
               />
             </Field>
-            <Field label="Model (optional)">
-              <input
-                type="text"
-                value={form.ollamaModel}
-                onChange={(e) => set("ollamaModel", e.target.value)}
-                placeholder="gemma4:2b (leave blank for server default)"
-                style={inputStyle}
-              />
-            </Field>
-          </>
+</>
         )}
 
         {/* Storage mode */}

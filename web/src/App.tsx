@@ -76,7 +76,7 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [railView, setRailView] = useState<RailView>("explorer");
-  const { headers: aiHeaders, wasLocked } = useApiKeysContext();
+  const { headers: aiHeaders } = useApiKeysContext();
   const local = useLocalFolder();
   const history = useFileHistory();
   const openEditors = useOpenEditors();
@@ -366,7 +366,7 @@ export default function App() {
             width: 36, height: 36,
             display: "flex", alignItems: "center", justifyContent: "center",
             borderRadius: 8,
-            color: wasLocked ? "#f9e2af" : "var(--rail-icon)",
+            color: "var(--rail-icon)",
             textDecoration: "none",
           }}
           onMouseEnter={(e) => {
@@ -375,7 +375,7 @@ export default function App() {
           }}
           onMouseLeave={(e) => {
             (e.currentTarget as HTMLAnchorElement).style.background = "none";
-            (e.currentTarget as HTMLAnchorElement).style.color = wasLocked ? "#f9e2af" : "var(--rail-icon)";
+            (e.currentTarget as HTMLAnchorElement).style.color = "var(--rail-icon)";
           }}
         >
           <Gear size={18} />

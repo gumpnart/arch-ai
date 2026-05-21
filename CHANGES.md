@@ -1,5 +1,22 @@
 # Change Log
 
+## 2026-05-21 — feat: Harden API key settings (env-derived encryption, no model config, connection test)
+
+### Changes
+
+| Area | Change |
+|---|---|
+| `web/src/lib/crypto.ts` | Replaced IndexedDB-stored CryptoKey with PBKDF2 key derived from `VITE_ENCRYPTION_SECRET` env var — deterministic, no more "key lost" scenario |
+| `web/src/lib/apiKeys.ts` | Removed `geminiModel` / `ollamaModel` — model is now server-controlled via env vars only |
+| `web/src/routes/api/ai/ping.ts` | New `/api/ai/ping` endpoint — minimal test call to the configured provider; returns `{ ok, provider, latencyMs?, error? }` |
+| `web/src/components/Settings/SettingsPage.tsx` | Removed model fields from UI; save button now "Save & test" — triggers ping and shows inline connection status (testing / connected / error) |
+| `web/.env.example` | Added `VITE_ENCRYPTION_SECRET` |
+| `web/src/contexts/ApiKeysContext.tsx` | Removed `wasLocked` (no longer relevant without IndexedDB) |
+
+### Migration note
+
+Existing ciphertext encrypted with the old IndexedDB-derived key will fail to decrypt and be silently cleared. Users will need to re-enter their API keys once after upgrading.
+
 ## 2026-05-21 — feat: Add API URL configuration alongside API keys
 
 Both providers now expose **URL · Key · Model** as separate configurable fields.
