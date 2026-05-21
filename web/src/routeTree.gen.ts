@@ -13,10 +13,10 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PocRouteImport } from './routes/poc'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiSettingsIndexRouteImport } from './routes/api/settings/index'
 import { Route as ApiKrokiRenderRouteImport } from './routes/api/kroki/render'
-import { Route as ApiAiChatRouteImport } from './routes/api/ai/chat'
 import { Route as ApiAiPingRouteImport } from './routes/api/ai/ping'
-import { Route as ApiSettingsRouteImport } from './routes/api/settings/index'
+import { Route as ApiAiChatRouteImport } from './routes/api/ai/chat'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -38,14 +38,14 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSettingsIndexRoute = ApiSettingsIndexRouteImport.update({
+  id: '/api/settings/',
+  path: '/api/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiKrokiRenderRoute = ApiKrokiRenderRouteImport.update({
   id: '/api/kroki/render',
   path: '/api/kroki/render',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAiChatRoute = ApiAiChatRouteImport.update({
-  id: '/api/ai/chat',
-  path: '/api/ai/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAiPingRoute = ApiAiPingRouteImport.update({
@@ -53,69 +53,85 @@ const ApiAiPingRoute = ApiAiPingRouteImport.update({
   path: '/api/ai/ping',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSettingsRoute = ApiSettingsRouteImport.update({
-  id: '/api/settings',
-  path: '/api/settings',
+const ApiAiChatRoute = ApiAiChatRouteImport.update({
+  id: '/api/ai/chat',
+  path: '/api/ai/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
+  '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
   '/api/ai/ping': typeof ApiAiPingRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
-  '/api/settings': typeof ApiSettingsRoute
+  '/api/settings/': typeof ApiSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
+  '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
   '/api/ai/ping': typeof ApiAiPingRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
-  '/api/settings': typeof ApiSettingsRoute
+  '/api/settings': typeof ApiSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
+  '/settings': typeof SettingsRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
   '/api/ai/ping': typeof ApiAiPingRoute
   '/api/kroki/render': typeof ApiKrokiRenderRoute
-  '/api/settings': typeof ApiSettingsRoute
+  '/api/settings/': typeof ApiSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/ai/ping' | '/api/kroki/render' | '/api/settings'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/ai/ping' | '/api/kroki/render' | '/api/settings'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
-    | '/settings'
     | '/poc'
+    | '/settings'
+    | '/api/health'
+    | '/api/ai/chat'
+    | '/api/ai/ping'
+    | '/api/kroki/render'
+    | '/api/settings/'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/poc'
+    | '/settings'
     | '/api/health'
     | '/api/ai/chat'
     | '/api/ai/ping'
     | '/api/kroki/render'
     | '/api/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/poc'
+    | '/settings'
+    | '/api/health'
+    | '/api/ai/chat'
+    | '/api/ai/ping'
+    | '/api/kroki/render'
+    | '/api/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SettingsRoute: typeof SettingsRoute
   PocRoute: typeof PocRoute
+  SettingsRoute: typeof SettingsRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAiChatRoute: typeof ApiAiChatRoute
   ApiAiPingRoute: typeof ApiAiPingRoute
   ApiKrokiRenderRoute: typeof ApiKrokiRenderRoute
-  ApiSettingsRoute: typeof ApiSettingsRoute
+  ApiSettingsIndexRoute: typeof ApiSettingsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -148,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/settings/': {
+      id: '/api/settings/'
+      path: '/api/settings'
+      fullPath: '/api/settings/'
+      preLoaderRoute: typeof ApiSettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/kroki/render': {
       id: '/api/kroki/render'
       path: '/api/kroki/render'
@@ -169,25 +192,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/settings': {
-      id: '/api/settings'
-      path: '/api/settings'
-      fullPath: '/api/settings'
-      preLoaderRoute: typeof ApiSettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SettingsRoute: SettingsRoute,
   PocRoute: PocRoute,
+  SettingsRoute: SettingsRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAiChatRoute: ApiAiChatRoute,
   ApiAiPingRoute: ApiAiPingRoute,
   ApiKrokiRenderRoute: ApiKrokiRenderRoute,
-  ApiSettingsRoute: ApiSettingsRoute,
+  ApiSettingsIndexRoute: ApiSettingsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

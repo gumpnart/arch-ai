@@ -9,7 +9,7 @@ export const Route = (createFileRoute as any)("/api/settings")({
   server: {
     handlers: {
       GET: async () => {
-        const s = readSettings();
+        const s = await readSettings();
         return Response.json({
           provider: s.provider,
           ollamaUrl: s.ollamaUrl,
@@ -19,13 +19,13 @@ export const Route = (createFileRoute as any)("/api/settings")({
       },
 
       POST: async ({ request }: { request: Request }) => {
-        const body = (await request.json()) as {
+        const body = await request.json() as {
           provider?: string;
           geminiApiKey?: string;
           ollamaUrl?: string;
           ollamaApiKey?: string;
         };
-        writeSettings({
+        await writeSettings({
           ...(body.provider    !== undefined && { provider:    body.provider }),
           ...(body.ollamaUrl   !== undefined && { ollamaUrl:   body.ollamaUrl }),
           ...(body.geminiApiKey !== undefined && { geminiApiKey: body.geminiApiKey }),
@@ -35,7 +35,7 @@ export const Route = (createFileRoute as any)("/api/settings")({
       },
 
       DELETE: async () => {
-        clearSettings();
+        await clearSettings();
         return Response.json({ ok: true });
       },
     },
