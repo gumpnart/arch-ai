@@ -6,6 +6,7 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { ApiKeysProvider } from "../contexts/ApiKeysContext.js";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -25,7 +26,9 @@ function RootComponent() {
         <HeadContent />
       </head>
       <body onContextMenu={(e) => e.preventDefault()}>
-        <Outlet />
+        <ApiKeysProvider>
+          <Outlet />
+        </ApiKeysProvider>
         <Scripts />
       </body>
     </html>

@@ -1,5 +1,125 @@
 # Change Log
 
+## 2026-05-21 — feat: Add API URL configuration alongside API keys
+
+Both providers now expose **URL · Key · Model** as separate configurable fields.
+
+| Field | Provider | Encrypted | Notes |
+|---|---|---|---|
+| `geminiBaseUrl` | Gemini | No | Override the default API endpoint (proxies, Vertex AI) |
+| `geminiApiKey`  | Gemini | ✅ | Required for client-side use |
+| `geminiModel`   | Gemini | No | Falls back to server default |
+| `ollamaUrl`     | Ollama | No | Base URL of the Ollama / OpenAI-compatible server |
+| `ollamaApiKey`  | Ollama | ✅ | Optional — for authenticated endpoints (Groq, OpenRouter…) |
+| `ollamaModel`   | Ollama | No | Falls back to server default |
+
+Server-side (`chat.ts`): reads `x-gemini-base-url` and `x-ollama-api-key` headers; both are SSRF-guarded (http/https only); `geminiBaseUrl` passed to `getGenerativeModel` via `RequestOptions.baseUrl`; `ollamaApiKey` forwarded as `Authorization: Bearer` to the upstream fetch.
+
+New env vars supported: `GEMINI_BASE_URL`, `OLLAMA_API_KEY`.
+
+## 2026-05-21 — feat: Add /settings page for AI provider configuration
+
+### What's new
+
+| File | Change |
+|---|---|
+| `web/src/routes/settings.tsx` | New TanStack Router route at `/settings` |
+| `web/src/components/Settings/SettingsPage.tsx` | Full settings page: sidebar nav, provider/key/model/storage fields, inline validation, save feedback, security notice |
+| `web/src/contexts/ApiKeysContext.tsx` | New context — wraps `useApiKeys` so state is shared between the editor (`/`) and settings (`/settings`) |
+| `web/src/routes/__root.tsx` | `<ApiKeysProvider>` wraps `<Outlet>` so all routes share the same key state |
+| `web/src/App.tsx` | Gear icon now `<Link to="/settings">`; `ApiKeyModal` removed; `useApiKeys` replaced by `useApiKeysContext` |
+| `web/src/routeTree.gen.ts` | `/settings` route registered (auto-overwritten on next `vite dev`) |
+
+### UX
+- Gear icon (⚙) in the icon rail navigates to `/settings`
+- Settings page has a back-to-editor link
+- Form uses a two-column label/input grid matching the app's design tokens
+- "Save changes" button shows "Encrypting…" while the AES-GCM write completes, then "Saved" confirmation for 2.5 s
+- `wasLocked` banner appears if IndexedDB was cleared (rare)
+
+## 2026-05-21 — feat: Persist encrypted API key across browser sessions
+
+Switched encryption key storage from `sessionStorage` (ephemeral) to IndexedDB
+(persistent, non-extractable). The key is generated once per browser profile and
+survives restarts — users enter their API key once and it is available on every
+subsequent open without re-entry.
+
+| Store | What lives there |
+|---|---|
+| **IndexedDB** (`arch-doc-vault`) | `CryptoKey` (AES-256-GCM, `extractable: false`) — persists across sessions; raw bytes cannot be exported via JS |
+| **localStorage** | `enc1:<iv>:<ciphertext>` — useless without the IndexedDB key |
+| **sessionStorage** | nothing (old approach removed) |
+
+`wasLocked` now only fires if the user manually clears site data (IndexedDB gone
+but localStorage still has old ciphertext). This is rare and the app recovers
+gracefully by clearing the unreadable blobs and showing a re-enter prompt.
+
+## 2026-05-21 — security: Encrypt API keys at rest with AES-256-GCM
+
+### What changed
+
+| File | Role |
+|---|---|
+| `web/src/lib/crypto.ts` (new) | AES-256-GCM helpers: `encrypt()`, `decrypt()`, `isEncrypted()`. Session key generated via Web Crypto API, cached in `sessionStorage` only — never touches `localStorage` or the server. |
+| `web/src/lib/apiKeys.ts` | `saveApiKeySettings()` now async — encrypts `geminiApiKey` before writing. `decryptSettings()` decrypts on load; returns `wasLocked=true` if the session key expired. |
+| `web/src/hooks/useApiKeys.ts` | Async `useEffect` init — runs `decryptSettings()` on mount; exposes `isReady` and `wasLocked`. |
+| `web/src/components/Settings/ApiKeyModal.tsx` | Button shows "Encrypting…" feedback; security notice updated to describe the encryption scheme accurately. |
+| `web/src/App.tsx` | Shows a `🔒` toast when `wasLocked=true` (session expired) with a one-click re-enter prompt. |
+
+### Threat model
+
+| Threat | Protected? |
+|---|---|
+| localStorage dump (DevTools, extension, physical access) | ✅ — ciphertext only; session key is in sessionStorage |
+| Chrome Sync (localStorage synced to other devices) | ✅ — ciphertext is useless without the session key |
+| XSS on this page | ❌ — same-origin script can reach both stores; acknowledged in the UI |
+| Server-side breach | ✅ — key never sent to or stored on the server |
+
+### Encryption format
+
+`enc1:<iv_base64>:<ciphertext_base64>` — prefixed tag allows safe detection of encrypted vs. plain values, and versioning if the scheme changes.
+
+## 2026-05-21 — security: Harden client-supplied API key handling
+
+### Vulnerabilities fixed
+
+| Severity | Issue | Fix |
+|---|---|---|
+| **High** | SSRF — client-controlled `x-ollama-url` was forwarded to a server-side `fetch()` without validation, allowing requests to internal services | `validateHttpUrl()` rejects any non-`http/https` scheme; server returns 400 on invalid input |
+| **High** | Header injection — raw user-supplied strings were placed directly into HTTP headers; `\r\n` chars can inject extra headers | `sanitizeHeader()` strips `\r\n\0` and caps length on every client header before use |
+| **Medium** | Key echoed in errors — Gemini SDK errors can include request metadata (including the API key); `String(err)` was sent directly to the SSE stream | `redactKey(message, key)` replaces any occurrence of the key with `[REDACTED]` before streaming the error |
+| **Medium** | XSS persistence — `localStorage` keeps the key indefinitely; if an XSS occurs later the key is still present | Added `storageMode: "session" \| "local"` — session mode uses `sessionStorage` (cleared on tab close); modal shows clear tradeoff UI |
+
+### Additional hardening
+
+- Client-side Gemini key format validation (`/^AIza[0-9A-Za-z\-_]{35,}$/`) with inline error in the modal
+- Client-side Ollama URL format validation before save
+- Security notice in the modal explains exactly what is and isn't protected
+
+## 2026-05-21 — feat: Client-side AI provider API key management
+
+### Overview
+
+Users can now supply their own Gemini or Ollama credentials directly from the browser without any server-side storage (no database, no Redis). Keys are persisted in `localStorage` and forwarded to the server as custom request headers on every AI chat call.
+
+### How it works
+
+| Layer | What changed |
+|---|---|
+| `web/src/lib/apiKeys.ts` | localStorage helpers: `loadApiKeySettings`, `saveApiKeySettings`, `clearApiKeySettings`, `buildAIHeaders` |
+| `web/src/hooks/useApiKeys.ts` | React hook exposing `settings`, `headers`, `save`, `clear` |
+| `web/src/components/Settings/ApiKeyModal.tsx` | Modal UI — provider selector, Gemini API key + model, Ollama URL + model |
+| `web/src/App.tsx` | Gear icon in icon rail opens `ApiKeyModal`; `aiHeaders` passed to `DocEditor` |
+| `web/src/components/Editor/DocEditor.tsx` | `aiHeaders` prop threaded through `DocEditor` → `EditorInner` → `AIAssistantContext` |
+| `web/src/components/Editor/AIAssistantBlock.tsx` | `aiHeaders` added to context; forwarded to `generate()` call |
+| `web/src/hooks/useAIAssistant.ts` | `generate()` accepts optional `extraHeaders`; merged into fetch headers |
+| `web/src/routes/api/ai/chat.ts` | Reads `x-ai-provider`, `x-gemini-api-key`, `x-gemini-model`, `x-ollama-url`, `x-ollama-model` headers; client values take precedence over server env vars |
+
+### Security
+
+- Keys travel over HTTPS only; never logged or stored server-side.
+- Server falls back to its own env vars when no client header is present (backward-compatible).
+
 ## 2026-05-20 — feat: Add data-testid attributes to all meaningful UI elements
 
 ### Overview

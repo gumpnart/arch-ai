@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PocRouteImport } from './routes/poc'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiKrokiRenderRouteImport } from './routes/api/kroki/render'
 import { Route as ApiAiChatRouteImport } from './routes/api/ai/chat'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PocRoute = PocRouteImport.update({
   id: '/poc',
   path: '/poc',
@@ -43,6 +49,7 @@ const ApiAiChatRoute = ApiAiChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
   '/poc': typeof PocRoute
   '/api/health': typeof ApiHealthRoute
   '/api/ai/chat': typeof ApiAiChatRoute
@@ -65,12 +74,13 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/kroki/render'
+  fullPaths: '/' | '/settings' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/kroki/render'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/kroki/render'
+  to: '/' | '/settings' | '/poc' | '/api/health' | '/api/ai/chat' | '/api/kroki/render'
   id:
     | '__root__'
     | '/'
+    | '/settings'
     | '/poc'
     | '/api/health'
     | '/api/ai/chat'
@@ -79,6 +89,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRoute: typeof SettingsRoute
   PocRoute: typeof PocRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAiChatRoute: typeof ApiAiChatRoute
@@ -87,6 +98,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/poc': {
       id: '/poc'
       path: '/poc'
@@ -127,6 +145,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRoute,
   PocRoute: PocRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAiChatRoute: ApiAiChatRoute,
